@@ -481,7 +481,11 @@ main :: proc() {
 	rl.InitAudioDevice()
 	init_sound()
 	defer rl.CloseWindow()
-	rl.SetTargetFPS(rl.GetCurrentMonitor())
+	monitorFPS := rl.GetMonitorRefreshRate(rl.GetCurrentMonitor())
+	monitorFPS = max(30, monitorFPS)
+	rl.SetTargetFPS(monitorFPS)
+	fmt.println("Using FPS=", monitorFPS)
+
 	switch_to_starting()
 	// note, we should handle large dt better, we can tunnel through things for large dt
 
