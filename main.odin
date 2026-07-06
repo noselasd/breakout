@@ -260,7 +260,6 @@ pad_collide :: proc(pos: ^rl.Vector2, velocity: ^rl.Vector2, pad_pos_x: f32) -> 
 	if coll.side != .None {
 		old_pos := pos^
 		pos^ += coll.normal * coll.overlap // push back projectile
-		fmt.println("**collision: ", coll, "pos before", old_pos, "after", pos^)
 		if coll.side == .Left || coll.side == .Right {
 			velocity.x = -velocity.x
 		} else if coll.side == .Top {
@@ -430,13 +429,7 @@ game_update :: proc(dt: f32, state: State) -> bool {
 }
 
 game_draw :: proc() {
-	txt := fmt.ctprintf(
-		"x: %03.0f y: %03.0f vx: %03.0f vy:%03.0f",
-		proj_pos.x,
-		proj_pos.y,
-		proj_velocity.x,
-		proj_velocity.y,
-	)
+
 	rl.BeginDrawing()
 
 	rl.ClearBackground(rl.WHITE)
@@ -477,7 +470,7 @@ move_towards :: proc(dt: f32, pos, vel: ^rl.Vector2, target: rl.Vector2, speed: 
 
 main :: proc() {
 	rl.SetConfigFlags({.VSYNC_HINT})
-	rl.InitWindow(i32(SCREEN_WIDTH), i32(SCREEN_HEIGHT), "odin-raylib-demo")
+	rl.InitWindow(i32(SCREEN_WIDTH), i32(SCREEN_HEIGHT), "Breakout")
 	rl.InitAudioDevice()
 	init_sound()
 	defer rl.CloseWindow()
