@@ -1,0 +1,4 @@
+{
+    "editor.formatOnSave": true,
+    "ols.server.path": "${userHome}/bin/ols",
+}

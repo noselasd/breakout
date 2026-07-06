@@ -1,0 +1,7 @@
+{
+    "enable_inlay_hints_params": true,
+    "enable_inlay_hints_default_params": true,
+    "enable_inlay_hints_implicit_return": true,
+    "enable_inlay_hints_optional_result": true,
+    "character_width": 120
+}
