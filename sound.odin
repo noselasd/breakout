@@ -4,9 +4,9 @@ import "core:c"
 import rl "vendor:raylib"
 
 
-bounce_sound: rl.Sound
-destroy_sound: rl.Sound
-died_sound: rl.Sound
+sound_bounce: rl.Sound
+sound_destroy: rl.Sound
+sound_died: rl.Sound
 
 init_sound :: proc() {
 	// compile-time loading of raw f32 samples
@@ -20,13 +20,13 @@ init_sound :: proc() {
 	wave.channels = 1 // Mono
 	wave.frameCount = c.uint(len(bounce_samples))
 	wave.data = rawptr(&bounce_samples[0])
-	bounce_sound = rl.LoadSoundFromWave(wave)
+	sound_bounce = rl.LoadSoundFromWave(wave)
 
 	wave.frameCount = c.uint(len(destroy_samples))
 	wave.data = rawptr(&destroy_samples[0])
-	destroy_sound = rl.LoadSoundFromWave(wave)
+	sound_destroy = rl.LoadSoundFromWave(wave)
 
 	wave.frameCount = c.uint(len(died_samples))
 	wave.data = rawptr(&died_samples[0])
-	died_sound = rl.LoadSoundFromWave(wave)
+	sound_died = rl.LoadSoundFromWave(wave)
 }

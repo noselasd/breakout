@@ -13,8 +13,8 @@ WALL_WIDTH: f32 = 7.0
 
 TILE_WIDTH: f32 = 70.0
 TILE_HEIGHT: f32 = 25.0
-TILE_COLS :: 10
-TILE_ROWS :: 10
+TILE_COLS :: 1
+TILE_ROWS :: 1
 TILE_SPACING: f32 = 15.0
 
 BAR_SPEED: f32 = 800.0
@@ -413,14 +413,14 @@ game_update :: proc(dt: f32, state: State) -> bool {
 		tile_destoyed := .TileDestroyed in event
 		if tile_destoyed {
 			remaining_tiles -= 1
-			rl.SetSoundPitch(destroy_sound, rand.float32() * (1.2 - 0.8) + 0.8)
-			rl.PlaySound(destroy_sound)
+			rl.SetSoundPitch(sound_destroy, rand.float32() * (1.2 - 0.8) + 0.8)
+			rl.PlaySound(sound_destroy)
 
 		}
 		collided := pad_collide(&proj_pos, &proj_velocity, pad_x)
 		if collided || .WallBounced in event {
-			rl.SetSoundPitch(bounce_sound, rand.float32() * (1.2 - 0.8) + 0.8)
-			rl.PlaySound(bounce_sound)
+			rl.SetSoundPitch(sound_bounce, rand.float32() * (1.2 - 0.8) + 0.8)
+			rl.PlaySound(sound_bounce)
 		}
 
 	}
@@ -553,7 +553,6 @@ celebrate :: proc() {
 	@(static) colors := [?]rl.Color{rl.GOLD, rl.RED, rl.GREEN, rl.WHITE, rl.BLUE}
 	x := rand.float32() * (SCREEN_WIDTH - WALL_WIDTH * 4) + WALL_WIDTH * 2
 	y := rand.float32() * (SCREEN_WIDTH - WALL_WIDTH * 4) + WALL_WIDTH * 2
-
 	particle_erupt(rl.Rectangle{x, y, TILE_WIDTH, TILE_HEIGHT}, rand.choice(colors[:]), 12)
 }
 
@@ -570,7 +569,7 @@ handle_killed :: proc() {
 	proj_velocity = {0, 0}
 
 	lives -= 1
-	rl.PlaySound(died_sound)
+	rl.PlaySound(sound_died)
 	if lives == 0 {
 		switch_to_gameover()
 	} else {
