@@ -570,6 +570,7 @@ handle_killed :: proc() {
 	proj_velocity = {0, 0}
 
 	lives -= 1
+	rl.PlaySound(died_sound)
 	if lives == 0 {
 		switch_to_gameover()
 	} else {
