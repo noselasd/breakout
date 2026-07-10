@@ -38,12 +38,18 @@ LIVES_X_OFFSET :: SCORE_X_OFFSET + PROJ_RADIUS
 LIVES_Y_OFFSET :: SCORE_Y_OFFSET + SCORE_FONT_SIZE + PROJ_RADIUS
 LIVES_SPACING :: 5
 
+ParticleType :: enum {
+	Square,
+	Circle,
+}
+
 Particle :: struct {
 	position: rl.Vector2,
 	velocity: rl.Vector2,
 	color:    rl.Color,
 	life:     f32,
-	size:     f32,
+	size:     f32, // Side for Square, radius circle
+	type:     ParticleType,
 }
 
 Tile :: struct {
@@ -74,7 +80,7 @@ timer_expired :: proc(dt: f32, timer: ^f32, timeout: f32) -> bool {
 	return time == 1
 }
 
-spawn_particle :: proc(pos: rl.Vector2, color: rl.Color) {
+spawn_particle :: proc(pos: rl.Vector2, color: rl.Color, min_size, max_size: f32, type: ParticleType) {
 	part: ^Particle
 	for &p in particles {
 		if p.life <= 0 {
@@ -86,8 +92,9 @@ spawn_particle :: proc(pos: rl.Vector2, color: rl.Color) {
 		return
 	}
 	part.life = PARTICLE_LIFETIME
+	part.type = type
 	part.color = color
-	part.size = rand.float32() * 7 + 1
+	part.size = rand.float32() * (max_size - min_size) + min_size
 	part.position = pos
 	vx := rand.float32() * 2 - 1
 	vy := rand.float32() * 2 - 1
@@ -128,22 +135,32 @@ particles_update :: proc(dt: f32) {
 	}
 }
 
-particle_erupt :: proc(area: rl.Rectangle, color: rl.Color, particle_count: u8) {
+particle_erupt :: proc(
+	area: rl.Rectangle,
+	color: rl.Color,
+	particle_count: u8,
+	min_size, max_size: f32,
+	type: ParticleType,
+) {
 	for _ in 0 ..< particle_count {
 		x := rand.float32() * (area.x + area.width - area.x) + area.x
 		y := rand.float32() * (area.y + area.height - area.y) + area.y
-		spawn_particle({x, y}, color)
+		spawn_particle({x, y}, color, min_size, max_size, type)
 	}
 }
 draw_particles :: proc() {
 	for &part in particles {
 		if part.life > 0 {
-			rl.DrawRectangleV(
-				{part.position.x - part.size, part.position.y - part.size},
-				{part.size * 2, part.size * 2},
-				part.color,
-			)
-			//	rl.DrawCircleV(part.position, part.size, part.color)
+			switch part.type {
+			case .Square:
+				rl.DrawRectangleV(
+					{part.position.x - part.size, part.position.y - part.size},
+					{part.size * 2, part.size * 2},
+					part.color,
+				)
+			case .Circle:
+				rl.DrawCircleV(part.position, part.size, part.color)
+			}
 		}
 	}
 }
@@ -335,7 +352,7 @@ projectile_collide :: proc(pos: ^rl.Vector2, velocity: ^rl.Vector2) -> Projectil
 
 			tile.alive = false
 			area := rl.Rectangle{tile.position.x, tile.position.y, TILE_WIDTH, TILE_HEIGHT}
-			particle_erupt(area, tile.color, 12)
+			particle_erupt(area, tile.color, 12, 1, 6, .Square)
 			return {.TileDestroyed}
 		}
 	}
@@ -553,7 +570,7 @@ celebrate :: proc() {
 	@(static) colors := [?]rl.Color{rl.GOLD, rl.RED, rl.GREEN, rl.WHITE, rl.BLUE}
 	x := rand.float32() * (SCREEN_WIDTH - WALL_WIDTH * 4) + WALL_WIDTH * 2
 	y := rand.float32() * (SCREEN_WIDTH - WALL_WIDTH * 4) + WALL_WIDTH * 2
-	particle_erupt(rl.Rectangle{x, y, TILE_WIDTH, TILE_HEIGHT}, rand.choice(colors[:]), 12)
+	particle_erupt(rl.Rectangle{x, y, TILE_WIDTH, TILE_HEIGHT}, rand.choice(colors[:]), 12, 1, 8, .Circle)
 }
 
 toggle_pause :: proc() {
@@ -565,7 +582,7 @@ toggle_pause :: proc() {
 }
 
 handle_killed :: proc() {
-	particle_erupt(proj_area(), rl.GOLD, 8)
+	particle_erupt(proj_area(), rl.GOLD, 10, 2, PROJ_RADIUS / 2, .Circle)
 	proj_velocity = {0, 0}
 
 	lives -= 1
@@ -574,7 +591,6 @@ handle_killed :: proc() {
 		switch_to_gameover()
 	} else {
 		proj_pos = {LIVES_X_OFFSET * f32(lives), LIVES_Y_OFFSET}
-		particle_erupt(proj_area(), rl.GOLD, 4)
 		state = .Dead
 	}
 }
