@@ -21,9 +21,10 @@ BAR_SPEED: f32 = 800.0
 
 PROJ_RADIUS :: 8
 PROJ_SPEED :: 512
+PROJ_COLOR :: rl.Color{192, 192, 192, 255}
 
 PAD_Y_POS := SCREEN_HEIGHT - 50.0
-PAD_WIDTH := TILE_WIDTH * 2.0
+PAD_WIDTH :: 128.0
 
 PARTICLES_MAX :: 256
 PARTICLE_LIFETIME :: 2
@@ -38,6 +39,8 @@ LIVES_X_OFFSET :: SCORE_X_OFFSET + PROJ_RADIUS
 LIVES_Y_OFFSET :: SCORE_Y_OFFSET + SCORE_FONT_SIZE + PROJ_RADIUS
 LIVES_SPACING :: 5
 
+BIG_PAD_TEX_MAP :: rl.Rectangle{0, 280, 128, 24}
+BALL_TEX_MAP :: rl.Rectangle{160, 200, 16, 16}
 ParticleType :: enum {
 	Square,
 	Circle,
@@ -219,11 +222,14 @@ move_pad :: proc(dt: f32, pad_x: f32) -> f32 {
 }
 
 draw_pad :: proc(x: f32) {
-	rl.DrawRectangleV({x, PAD_Y_POS}, {PAD_WIDTH, TILE_HEIGHT}, rl.BEIGE)
+	//rl.DrawRectangleV({x, PAD_Y_POS}, {PAD_WIDTH, TILE_HEIGHT}, rl.BEIGE)
+	rl.DrawTextureRec(texture_map, BIG_PAD_TEX_MAP, {x, PAD_Y_POS}, rl.WHITE)
+
 }
 
 draw_projectile :: proc(pos: rl.Vector2) {
-	rl.DrawCircleV(pos, PROJ_RADIUS, rl.GOLD)
+	adjusted_pos := rl.Vector2{pos.x - PROJ_RADIUS, pos.y - PROJ_RADIUS}
+	rl.DrawTextureRec(texture_map, BALL_TEX_MAP, adjusted_pos, rl.WHITE)
 }
 
 draw_tiles :: proc() {
@@ -419,7 +425,7 @@ lives: i8
 state: State
 celebrate_timer: f32
 celebrate_cooldown: f32 = .33
-
+texture_map: rl.Texture2D
 game_update :: proc(dt: f32, state: State) -> bool {
 	killed: bool
 	pad_x = move_pad(dt, pad_x)
@@ -448,7 +454,6 @@ game_update :: proc(dt: f32, state: State) -> bool {
 game_draw :: proc() {
 
 	rl.BeginDrawing()
-
 	rl.ClearBackground(rl.WHITE)
 
 	draw_walls()
@@ -488,6 +493,8 @@ move_towards :: proc(dt: f32, pos, vel: ^rl.Vector2, target: rl.Vector2, speed: 
 main :: proc() {
 	rl.SetConfigFlags({.VSYNC_HINT})
 	rl.InitWindow(i32(SCREEN_WIDTH), i32(SCREEN_HEIGHT), "Breakout")
+	texture_map = rl.LoadTexture("sprites.png")
+
 	rl.InitAudioDevice()
 	init_sound()
 	defer rl.CloseWindow()
@@ -567,7 +574,7 @@ main :: proc() {
 }
 
 celebrate :: proc() {
-	@(static) colors := [?]rl.Color{rl.GOLD, rl.RED, rl.GREEN, rl.WHITE, rl.BLUE}
+	@(static) colors := [?]rl.Color{PROJ_COLOR, rl.RED, rl.GREEN, rl.WHITE, rl.BLUE}
 	x := rand.float32() * (SCREEN_WIDTH - WALL_WIDTH * 4) + WALL_WIDTH * 2
 	y := rand.float32() * (SCREEN_WIDTH - WALL_WIDTH * 4) + WALL_WIDTH * 2
 	particle_erupt(rl.Rectangle{x, y, TILE_WIDTH, TILE_HEIGHT}, rand.choice(colors[:]), 12, 1, 8, .Circle)
@@ -582,7 +589,7 @@ toggle_pause :: proc() {
 }
 
 handle_killed :: proc() {
-	particle_erupt(proj_area(), rl.GOLD, 10, 2, PROJ_RADIUS / 2, .Circle)
+	particle_erupt(proj_area(), PROJ_COLOR, 10, 2, PROJ_RADIUS / 2, .Circle)
 	proj_velocity = {0, 0}
 
 	lives -= 1
