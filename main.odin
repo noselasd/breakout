@@ -27,7 +27,6 @@ PAD_WIDTH :: 128.0
 PAD_Y_POS :: SCREEN_HEIGHT - 50.0
 
 PARTICLES_MAX :: 256
-PARTICLE_LIFETIME :: 2
 PARTICLE_SPEED :: 150
 
 SCORE_X_OFFSET :: 24
@@ -51,6 +50,7 @@ Particle :: struct {
 	velocity: rl.Vector2,
 	color:    rl.Color,
 	life:     f32,
+	lifetime: f32,
 	size:     f32, // Side for Square, radius circle
 	type:     ParticleType,
 }
@@ -83,7 +83,7 @@ timer_expired :: proc(dt: f32, timer: ^f32, timeout: f32) -> bool {
 	return time == 1
 }
 
-spawn_particle :: proc(pos: rl.Vector2, color: rl.Color, min_size, max_size: f32, type: ParticleType) {
+spawn_particle :: proc(pos: rl.Vector2, color: rl.Color, min_size, max_size: f32, type: ParticleType, lifetime: f32) {
 	part: ^Particle
 	for &p in particles {
 		if p.life <= 0 {
@@ -94,7 +94,8 @@ spawn_particle :: proc(pos: rl.Vector2, color: rl.Color, min_size, max_size: f32
 	if part == nil {
 		return
 	}
-	part.life = PARTICLE_LIFETIME
+	part.life = lifetime
+	part.lifetime = lifetime
 	part.type = type
 	part.color = color
 	part.size = rand.float32() * (max_size - min_size) + min_size
@@ -112,7 +113,7 @@ particles_update :: proc(dt: f32) {
 			continue
 		}
 		part.life = max(part.life - dt, 0)
-		normalized_life := part.life / PARTICLE_LIFETIME
+		normalized_life := part.life / part.lifetime
 		part.color.a = u8(math.round(255 * normalized_life))
 		part.position += dt * part.velocity
 		part.velocity.y += dt * PARTICLE_SPEED
@@ -144,11 +145,12 @@ particle_erupt :: proc(
 	particle_count: u8,
 	min_size, max_size: f32,
 	type: ParticleType,
+	lifetime: f32,
 ) {
 	for _ in 0 ..< particle_count {
 		x := rand.float32() * (area.x + area.width - area.x) + area.x
 		y := rand.float32() * (area.y + area.height - area.y) + area.y
-		spawn_particle({x, y}, color, min_size, max_size, type)
+		spawn_particle({x, y}, color, min_size, max_size, type, lifetime)
 	}
 }
 draw_particles :: proc() {
@@ -341,7 +343,7 @@ projectile_collide :: proc(pos: ^rl.Vector2, velocity: ^rl.Vector2) -> Projectil
 
 			tile.alive = false
 			area := rl.Rectangle{tile.position.x, tile.position.y, TILE_WIDTH, TILE_HEIGHT}
-			particle_erupt(area, tile.color, 12, 1, 6, .Square)
+			particle_erupt(area, tile.color, 12, 1, 6, .Square, .6)
 			return {.TileDestroyed}
 		}
 	}
@@ -401,7 +403,7 @@ screen_text: ScreenText
 paused := false
 remaining_tiles: u8
 total_tiles: u8
-grid_width: f32 = TILE_WIDTH * TILE_COLS + TILE_COLS - 1 * TILE_SPACING
+grid_width: f32 = TILE_WIDTH * TILE_COLS + (TILE_COLS - 1) * TILE_SPACING
 grid_x := (SCREEN_WIDTH - grid_width) / 2
 particles: [PARTICLES_MAX]Particle
 lives: i8
@@ -562,7 +564,7 @@ celebrate :: proc() {
 	@(static) colors := [?]rl.Color{PROJ_COLOR, rl.RED, rl.GREEN, rl.WHITE, rl.BLUE}
 	x := rand.float32() * (SCREEN_WIDTH - WALL_WIDTH * 4) + WALL_WIDTH * 2
 	y := rand.float32() * (SCREEN_WIDTH - WALL_WIDTH * 4) + WALL_WIDTH * 2
-	particle_erupt(rl.Rectangle{x, y, TILE_WIDTH, TILE_HEIGHT}, rand.choice(colors[:]), 12, 1, 8, .Circle)
+	particle_erupt(rl.Rectangle{x, y, TILE_WIDTH, TILE_HEIGHT}, rand.choice(colors[:]), 12, 1, 8, .Circle, 2.)
 }
 
 toggle_pause :: proc() {
@@ -574,7 +576,7 @@ toggle_pause :: proc() {
 }
 
 handle_killed :: proc() {
-	particle_erupt(proj_area(), PROJ_COLOR, 10, 2, PROJ_RADIUS / 2, .Circle)
+	particle_erupt(proj_area(), PROJ_COLOR, 10, 2, PROJ_RADIUS / 2, .Circle, 2)
 	proj_velocity = {0, 0}
 
 	lives -= 1
