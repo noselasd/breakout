@@ -6,25 +6,25 @@ import "core:math/linalg"
 import "core:math/rand"
 import rl "vendor:raylib"
 
-SCREEN_WIDTH: f32 = 1200.0
-SCREEN_HEIGHT: f32 = 800.0
+SCREEN_WIDTH :: 1200.0
+SCREEN_HEIGHT :: 800.0
 
 WALL_WIDTH: f32 = 7.0
 
-TILE_WIDTH: f32 = 70.0
-TILE_HEIGHT: f32 = 25.0
+TILE_WIDTH :: 70.0
+TILE_HEIGHT :: 25.0
 TILE_COLS :: 10
 TILE_ROWS :: 10
-TILE_SPACING: f32 = 15.0
+TILE_SPACING :: 15.0
 
-BAR_SPEED: f32 = 800.0
+BAR_SPEED :: 800.0
 
 PROJ_RADIUS :: 8
 PROJ_SPEED :: 512
 PROJ_COLOR :: rl.Color{192, 192, 192, 255}
 
-PAD_Y_POS := SCREEN_HEIGHT - 50.0
 PAD_WIDTH :: 128.0
+PAD_Y_POS :: SCREEN_HEIGHT - 50.0
 
 PARTICLES_MAX :: 256
 PARTICLE_LIFETIME :: 2
@@ -184,25 +184,9 @@ draw_tile :: proc(x: f32, y: f32, color: rl.Color) {
 	rl.DrawRectangleV({x, y}, {TILE_WIDTH, TILE_HEIGHT}, color)
 }
 
-init_tiles :: proc(grid_x: f32) {
-	for row in 0 ..< TILE_ROWS {
-		factor := u8(((row * 255) + TILE_ROWS) / TILE_ROWS)
-		colrA := rl.ColorAlphaBlend(rl.RED, rl.GREEN, rl.Color{255, 255, 255, factor})
-		colrB := rl.ColorAlphaBlend(rl.GREEN, rl.BLUE, rl.Color{255, 255, 255, factor})
-		for col in 0 ..< TILE_COLS {
-			tile := &tiles[col * TILE_ROWS + row]
-			tile.alive = true
-			tile.color = colrA if factor < 128 else colrB
-			tile.position.x = grid_x + f32(col) * (TILE_WIDTH + TILE_SPACING)
-			tile.position.y = WALL_WIDTH + 2.0 * TILE_HEIGHT + f32(row) * (TILE_HEIGHT + TILE_SPACING)
-
-		}
-	}
-	remaining_tiles = TILE_COLS * TILE_ROWS
-}
 
 attach_projectile_to_pad :: proc() {
-	proj_pos = rl.Vector2{pad_x + PAD_WIDTH / 2, SCREEN_HEIGHT - 50 - PROJ_RADIUS}
+	proj_pos = rl.Vector2{pad_x + PAD_WIDTH / 2.0, SCREEN_HEIGHT - 50 - PROJ_RADIUS}
 	proj_velocity = 0
 }
 
@@ -254,7 +238,6 @@ draw_screen_text :: proc(text: ScreenText) {
 }
 
 draw_score :: proc() {
-	total_tiles: i32 = TILE_COLS * TILE_ROWS
 	text := fmt.ctprintf("%03d/%03d", total_tiles - remaining_tiles, total_tiles)
 	rl.DrawText(text, SCORE_X_OFFSET, SCORE_Y_OFFSET, SCORE_FONT_SIZE, rl.BLACK)
 }
@@ -416,16 +399,18 @@ proj_pos: rl.Vector2
 proj_velocity: rl.Vector2
 screen_text: ScreenText
 paused := false
-remaining_tiles: i32
-grid_width: f32 = TILE_WIDTH * f32(TILE_COLS) + f32(TILE_COLS - 1) * TILE_SPACING
+remaining_tiles: u8
+total_tiles: u8
+grid_width: f32 = TILE_WIDTH * TILE_COLS + TILE_COLS - 1 * TILE_SPACING
 grid_x := (SCREEN_WIDTH - grid_width) / 2
-tiles: [TILE_ROWS * TILE_COLS]Tile
 particles: [PARTICLES_MAX]Particle
 lives: i8
 state: State
 celebrate_timer: f32
 celebrate_cooldown: f32 = .33
 texture_map: rl.Texture2D
+current_level: u8 = 0
+
 game_update :: proc(dt: f32, state: State) -> bool {
 	killed: bool
 	pad_x = move_pad(dt, pad_x)
@@ -603,7 +588,11 @@ handle_killed :: proc() {
 }
 
 switch_to_starting :: proc() {
-	init_tiles(grid_x)
+	if current_level == 0 {
+		current_level = 1
+	}
+	total_tiles = init_level(current_level)
+	remaining_tiles = total_tiles
 	center_pad()
 	particles_reset()
 
@@ -616,6 +605,7 @@ switch_to_starting :: proc() {
 }
 
 switch_to_playing :: proc() {
+
 	attach_projectile_to_pad()
 	screen_text.active = false
 	left_or_right: f32 = -1
@@ -634,6 +624,7 @@ switch_to_gameover :: proc() {
 	proj_pos.y = SCREEN_HEIGHT + PROJ_RADIUS // hide
 	proj_velocity = {0, 0}
 	state = .GameOver
+	current_level = 0
 }
 
 switch_to_victory :: proc() {
@@ -643,4 +634,5 @@ switch_to_victory :: proc() {
 	proj_velocity = {0, 0}
 	state = .Victory
 	celebrate_timer = celebrate_cooldown
+	current_level += 1
 }
