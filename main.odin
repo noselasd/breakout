@@ -6,8 +6,8 @@ import "core:math/linalg"
 import "core:math/rand"
 import rl "vendor:raylib"
 
-SCREEN_WIDTH :: 1200.0
-SCREEN_HEIGHT :: 800.0
+SCREEN_WIDTH :: 1200
+SCREEN_HEIGHT :: 800
 
 WALL_WIDTH: f32 = 7.0
 
@@ -66,9 +66,16 @@ Tile :: struct {
 	alive:       bool,
 	unbreakable: bool,
 }
+
+ScreenTextSection :: enum {
+	Top,
+	Middle,
+	Bottom,
+}
 ScreenText :: struct {
-	text:   cstring,
-	active: bool,
+	text:    cstring,
+	active:  bool,
+	section: ScreenTextSection,
 }
 
 Event :: enum {
@@ -187,8 +194,11 @@ draw_walls :: proc() {
 	rl.DrawRectangleV({0, 0}, {SCREEN_WIDTH, WALL_WIDTH}, rl.BLUE)
 }
 
-draw_tile :: proc(x: f32, y: f32, color: rl.Color) {
-	rl.DrawRectangleV({x, y}, {TILE_WIDTH, TILE_HEIGHT}, color)
+draw_tile :: proc(tile: ^Tile) {
+	rl.DrawRectangleV(tile.position, {TILE_WIDTH, TILE_HEIGHT}, tile.color)
+	if tile.unbreakable {
+		rl.DrawRectangleLines(i32(tile.position.x), i32(tile.position.y), TILE_WIDTH, TILE_HEIGHT, rl.BLACK)
+	}
 }
 
 
@@ -226,7 +236,8 @@ draw_projectile :: proc(pos: rl.Vector2) {
 draw_tiles :: proc() {
 	for &tile in tiles {
 		if tile.alive {
-			draw_tile(tile.position.x, tile.position.y, tile.color)
+			draw_tile(&tile)
+
 		}
 	}
 }
@@ -238,9 +249,17 @@ draw_screen_text :: proc(text: ScreenText) {
 
 	font_size: i32 = 64
 	text_width := rl.MeasureText(screen_text.text, font_size)
-
+	section: i32 = ---
+	switch text.section {
+	case .Top:
+		section = SCREEN_HEIGHT / 3
+	case .Middle:
+		section = SCREEN_HEIGHT / 2
+	case .Bottom:
+		section = (SCREEN_HEIGHT / 3) * 2
+	}
 	text_x := i32(SCREEN_WIDTH) / 2 - text_width / 2
-	text_y := i32(SCREEN_HEIGHT) / 3 * 2 - font_size / 2
+	text_y := section - font_size / 2
 	rl.DrawText(screen_text.text, text_x, text_y, font_size, rl.BLACK)
 }
 
@@ -250,7 +269,7 @@ draw_score :: proc() {
 }
 
 draw_lives :: proc() {
-	for life in 0 ..< lives {
+	for life in 0 ..< lives - 1 { 	// 1 ball is on the pad
 		x: f32 = LIVES_X_OFFSET + f32(life) * (PROJ_RADIUS * 2 + LIVES_SPACING)
 		y: f32 = LIVES_Y_OFFSET
 		draw_projectile(rl.Vector2{x, y})
@@ -346,7 +365,7 @@ projectile_collide :: proc(pos: ^rl.Vector2, velocity: ^rl.Vector2) -> Projectil
 				velocity.y = -velocity.y
 			}
 			pos^ += coll.normal * coll.overlap // push back projectile
-
+			// Note, collision detection is cooked - we can get tunneling
 			if !tile.unbreakable {
 				tile.alive = false
 				area := rl.Rectangle{tile.position.x, tile.position.y, TILE_WIDTH, TILE_HEIGHT}
@@ -391,8 +410,32 @@ circle_rect_collide :: proc(circle_pos: rl.Vector2, circle_radius: f32, rect: rl
 	distance := rl.Vector2Length(collision)
 	result.overlap = distance - circle_radius
 	if dist_squared == 0.0 {
-		result.normal = {0, 1} // somewhat arbitrary case..
-		result.side = .Top
+		// Circle center is inside the rect. Use axis-minimum (SAT) to find the
+		// nearest face and push the circle out that way, rather than returning
+		// an arbitrary normal.
+		dx_left := circle_pos.x - rect.x
+		dx_right := (rect.x + rect.width) - circle_pos.x
+		dy_top := circle_pos.y - rect.y
+		dy_bottom := (rect.y + rect.height) - circle_pos.y
+
+		min_d := min(dx_left, dx_right, dy_top, dy_bottom)
+		if min_d == dx_left {
+			result.normal = {1, 0}
+			result.overlap = -(dx_left + circle_radius)
+			result.side = .Left
+		} else if min_d == dx_right {
+			result.normal = {-1, 0}
+			result.overlap = -(dx_right + circle_radius)
+			result.side = .Right
+		} else if min_d == dy_top {
+			result.normal = {0, 1}
+			result.overlap = -(dy_top + circle_radius)
+			result.side = .Top
+		} else {
+			result.normal = {0, -1}
+			result.overlap = -(dy_bottom + circle_radius)
+			result.side = .Bottom
+		}
 		return result
 	}
 	normal := collision * (1 / distance)
@@ -419,7 +462,7 @@ state: State
 celebrate_timer: f32
 celebrate_cooldown: f32 = .33
 texture_map: rl.Texture2D
-current_level: u8 = 3
+current_level: u8 = 1
 
 game_update :: proc(dt: f32, state: State) -> bool {
 	killed: bool
@@ -578,6 +621,7 @@ celebrate :: proc() {
 toggle_pause :: proc() {
 	paused = !paused
 	screen_text.active = paused
+	screen_text.section = .Bottom
 	if paused {
 		screen_text.text = "PAUSED"
 	}
@@ -608,8 +652,9 @@ switch_to_starting :: proc() {
 
 	paused = false
 	screen_text.active = true
+	screen_text.section = .Bottom
 	screen_text.text = "Press (space) to start"
-	lives = 4
+	lives = 5
 
 	state = .Starting
 }
@@ -630,6 +675,7 @@ switch_to_playing :: proc() {
 
 switch_to_gameover :: proc() {
 	screen_text.active = true
+	screen_text.section = .Bottom
 	screen_text.text = "Game Over"
 	proj_pos.y = SCREEN_HEIGHT + PROJ_RADIUS // hide
 	proj_velocity = {0, 0}
@@ -639,6 +685,7 @@ switch_to_gameover :: proc() {
 
 switch_to_victory :: proc() {
 	screen_text.active = true
+	screen_text.section = .Middle
 	screen_text.text = "Victory !"
 	proj_pos.y = SCREEN_HEIGHT + PROJ_RADIUS // hide
 	proj_velocity = {0, 0}
