@@ -40,6 +40,10 @@ LIVES_SPACING :: 5
 
 BIG_PAD_TEX_MAP :: rl.Rectangle{0, 280, 128, 24}
 BALL_TEX_MAP :: rl.Rectangle{160, 200, 16, 16}
+
+GRID_WIDTH :: TILE_WIDTH * TILE_COLS + (TILE_COLS - 1) * TILE_SPACING
+GRID_X_START :: (SCREEN_WIDTH - GRID_WIDTH) / 2
+
 ParticleType :: enum {
 	Square,
 	Circle,
@@ -56,10 +60,11 @@ Particle :: struct {
 }
 
 Tile :: struct {
-	position: rl.Vector2,
-	velocity: rl.Vector2,
-	color:    rl.Color,
-	alive:    bool,
+	position:    rl.Vector2,
+	velocity:    rl.Vector2,
+	color:       rl.Color,
+	alive:       bool,
+	unbreakable: bool,
 }
 ScreenText :: struct {
 	text:   cstring,
@@ -69,7 +74,7 @@ ScreenText :: struct {
 Event :: enum {
 	Killed,
 	TileDestroyed,
-	WallBounced,
+	Bounced,
 }
 ProjectileEvent :: bit_set[Event]
 
@@ -240,7 +245,7 @@ draw_screen_text :: proc(text: ScreenText) {
 }
 
 draw_score :: proc() {
-	text := fmt.ctprintf("%03d/%03d", total_tiles - remaining_tiles, total_tiles)
+	text := fmt.ctprintf("Level %02d : %03d/%03d", current_level, total_tiles - remaining_tiles, total_tiles)
 	rl.DrawText(text, SCORE_X_OFFSET, SCORE_Y_OFFSET, SCORE_FONT_SIZE, rl.BLACK)
 }
 
@@ -301,20 +306,20 @@ projectile_collide :: proc(pos: ^rl.Vector2, velocity: ^rl.Vector2) -> Projectil
 	if pos.x - PROJ_RADIUS <= WALL_WIDTH {
 		pos.x = WALL_WIDTH + PROJ_RADIUS
 		velocity.x = -velocity.x
-		return {.WallBounced}
+		return {.Bounced}
 	}
 	// right wal
 	if pos.x + PROJ_RADIUS >= SCREEN_WIDTH - WALL_WIDTH {
 		velocity.x = -velocity.x
 		pos.x = SCREEN_WIDTH - WALL_WIDTH - PROJ_RADIUS
-		return {.WallBounced}
+		return {.Bounced}
 	}
 
 	// top
 	if pos.y - PROJ_RADIUS <= WALL_WIDTH {
 		velocity.y = -velocity.y
 		pos.y = WALL_WIDTH + PROJ_RADIUS
-		return {.WallBounced}
+		return {.Bounced}
 	}
 
 	//bottom
@@ -340,11 +345,16 @@ projectile_collide :: proc(pos: ^rl.Vector2, velocity: ^rl.Vector2) -> Projectil
 			} else {
 				velocity.y = -velocity.y
 			}
+			pos^ += coll.normal * coll.overlap // push back projectile
 
-			tile.alive = false
-			area := rl.Rectangle{tile.position.x, tile.position.y, TILE_WIDTH, TILE_HEIGHT}
-			particle_erupt(area, tile.color, 12, 1, 6, .Square, .6)
-			return {.TileDestroyed}
+			if !tile.unbreakable {
+				tile.alive = false
+				area := rl.Rectangle{tile.position.x, tile.position.y, TILE_WIDTH, TILE_HEIGHT}
+				particle_erupt(area, tile.color, 12, 1, 6, .Square, .6)
+				return {.TileDestroyed}
+			} else {
+				return {.Bounced}
+			}
 		}
 	}
 	return {}
@@ -403,15 +413,13 @@ screen_text: ScreenText
 paused := false
 remaining_tiles: u8
 total_tiles: u8
-grid_width: f32 = TILE_WIDTH * TILE_COLS + (TILE_COLS - 1) * TILE_SPACING
-grid_x := (SCREEN_WIDTH - grid_width) / 2
 particles: [PARTICLES_MAX]Particle
 lives: i8
 state: State
 celebrate_timer: f32
 celebrate_cooldown: f32 = .33
 texture_map: rl.Texture2D
-current_level: u8 = 0
+current_level: u8 = 3
 
 game_update :: proc(dt: f32, state: State) -> bool {
 	killed: bool
@@ -428,7 +436,7 @@ game_update :: proc(dt: f32, state: State) -> bool {
 
 		}
 		collided := pad_collide(&proj_pos, &proj_velocity, pad_x)
-		if collided || .WallBounced in event {
+		if collided || .Bounced in event {
 			rl.SetSoundPitch(sound_bounce, rand.float32() * (1.2 - 0.8) + 0.8)
 			rl.PlaySound(sound_bounce)
 		}
