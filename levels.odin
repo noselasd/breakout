@@ -2,18 +2,26 @@ package main
 
 import rl "vendor:raylib"
 tiles: [TILE_ROWS * TILE_COLS]Tile
-
-init_level :: proc(level_number: u8) -> u8 {
-	if level_number == 1 {
+Level :: struct {
+	Level_number:    u8,
+	total_tiles:     u8,
+	remaining_tiles: u8,
+	tiles:           []Tile,
+}
+init_level :: proc(level_number: u8) -> Level {
+	if level_number == 0 || level_number == 1 {
 		return level_1()
 	} else if level_number == 2 {
+		return level_2()
+	} else if level_number == 3 {
 		return level_3()
 	} else {
 		return level_n(level_number)
 	}
 }
 
-level_1 :: proc() -> u8 {
+level_1 :: proc() -> Level {
+	num_tiles: u8 = 0
 	for row in 0 ..< TILE_ROWS {
 		for col in 0 ..< TILE_COLS {
 			tile := &tiles[col * TILE_ROWS + row]
@@ -22,17 +30,16 @@ level_1 :: proc() -> u8 {
 				tile.color = rl.RED if row == 2 else rl.GREEN
 				tile.position.x = GRID_X_START + f32(col) * (TILE_WIDTH + TILE_SPACING)
 				tile.position.y = WALL_WIDTH + 2.0 * TILE_HEIGHT + f32(row) * (TILE_HEIGHT + TILE_SPACING)
+				num_tiles += 1
 			} else {
 				tile.alive = false
 			}
 		}
 	}
-	remaining_tiles = TILE_COLS * TILE_ROWS
-
-	return TILE_COLS * 2
+	return Level{Level_number = 1, total_tiles = num_tiles, remaining_tiles = num_tiles, tiles = tiles[:]}
 }
 
-level_2 :: proc() -> u8 {
+level_2 :: proc() -> Level {
 	num_tiles: u8 = 0
 	for row in 0 ..< TILE_ROWS {
 		for col in 0 ..< TILE_COLS {
@@ -48,12 +55,12 @@ level_2 :: proc() -> u8 {
 			}
 		}
 	}
-	remaining_tiles = num_tiles
 
-	return num_tiles
+	return Level{Level_number = 2, total_tiles = num_tiles, remaining_tiles = num_tiles, tiles = tiles[:]}
+
 }
 
-level_3 :: proc() -> u8 {
+level_3 :: proc() -> Level {
 	num_tiles: u8 = 0
 	for row in 0 ..< TILE_ROWS {
 		for col in 0 ..< TILE_COLS {
@@ -69,12 +76,11 @@ level_3 :: proc() -> u8 {
 			}
 		}
 	}
-	remaining_tiles = num_tiles
+	return Level{Level_number = 3, total_tiles = num_tiles, remaining_tiles = num_tiles, tiles = tiles[:]}
 
-	return num_tiles
 }
 
-level_n :: proc(level_number: u8) -> u8 {
+level_n :: proc(level_number: u8) -> Level {
 	for row in 0 ..< TILE_ROWS {
 		factor := u8(((row * 255) + TILE_ROWS) / TILE_ROWS)
 		colrA := rl.ColorAlphaBlend(rl.RED, rl.GREEN, rl.Color{255, 255, 255, factor})
@@ -91,7 +97,12 @@ level_n :: proc(level_number: u8) -> u8 {
 			}
 		}
 	}
-	remaining_tiles = TILE_COLS * TILE_ROWS
+	total_tiles: u8 = TILE_COLS * TILE_ROWS
+	return Level {
+		Level_number = level_number,
+		total_tiles = total_tiles,
+		remaining_tiles = total_tiles,
+		tiles = tiles[:],
+	}
 
-	return TILE_ROWS * TILE_COLS
 }

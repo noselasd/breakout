@@ -264,7 +264,12 @@ draw_screen_text :: proc(text: ScreenText) {
 }
 
 draw_score :: proc() {
-	text := fmt.ctprintf("Level %02d : %03d/%03d", current_level, total_tiles - remaining_tiles, total_tiles)
+	text := fmt.ctprintf(
+		"Level %02d : %03d/%03d",
+		current_level.Level_number,
+		current_level.total_tiles - current_level.remaining_tiles,
+		current_level.total_tiles,
+	)
 	rl.DrawText(text, SCORE_X_OFFSET, SCORE_Y_OFFSET, SCORE_FONT_SIZE, rl.BLACK)
 }
 
@@ -454,15 +459,13 @@ proj_pos: rl.Vector2
 proj_velocity: rl.Vector2
 screen_text: ScreenText
 paused := false
-remaining_tiles: u8
-total_tiles: u8
 particles: [PARTICLES_MAX]Particle
 lives: i8
 state: State
 celebrate_timer: f32
 celebrate_cooldown: f32 = .33
 texture_map: rl.Texture2D
-current_level: u8 = 1
+current_level: Level
 
 game_update :: proc(dt: f32, state: State) -> bool {
 	killed: bool
@@ -473,7 +476,7 @@ game_update :: proc(dt: f32, state: State) -> bool {
 		killed = .Killed in event
 		tile_destoyed := .TileDestroyed in event
 		if tile_destoyed {
-			remaining_tiles -= 1
+			current_level.remaining_tiles -= 1
 			rl.SetSoundPitch(sound_destroy, rand.float32() * (1.2 - 0.8) + 0.8)
 			rl.PlaySound(sound_destroy)
 
@@ -532,7 +535,6 @@ main :: proc() {
 	rl.SetConfigFlags({.VSYNC_HINT})
 	rl.InitWindow(i32(SCREEN_WIDTH), i32(SCREEN_HEIGHT), "Breakout")
 	texture_map = rl.LoadTexture("sprites.png")
-
 	rl.InitAudioDevice()
 	init_sound()
 	defer rl.CloseWindow()
@@ -567,7 +569,7 @@ main :: proc() {
 					handle_killed()
 				}
 			}
-			if remaining_tiles == 0 {
+			if current_level.remaining_tiles == 0 {
 				switch_to_victory()
 			}
 		case .Dead:
@@ -642,11 +644,7 @@ handle_killed :: proc() {
 }
 
 switch_to_starting :: proc() {
-	if current_level == 0 {
-		current_level = 1
-	}
-	total_tiles = init_level(current_level)
-	remaining_tiles = total_tiles
+	current_level = init_level(current_level.Level_number + 1)
 	center_pad()
 	particles_reset()
 
@@ -680,7 +678,7 @@ switch_to_gameover :: proc() {
 	proj_pos.y = SCREEN_HEIGHT + PROJ_RADIUS // hide
 	proj_velocity = {0, 0}
 	state = .GameOver
-	current_level = 0
+	current_level.Level_number = 0
 }
 
 switch_to_victory :: proc() {
@@ -691,5 +689,4 @@ switch_to_victory :: proc() {
 	proj_velocity = {0, 0}
 	state = .Victory
 	celebrate_timer = celebrate_cooldown
-	current_level += 1
 }
