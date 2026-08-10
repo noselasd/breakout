@@ -43,6 +43,7 @@ BALL_TEX_MAP :: rl.Rectangle{160, 200, 16, 16}
 
 GRID_WIDTH :: TILE_WIDTH * TILE_COLS + (TILE_COLS - 1) * TILE_SPACING
 GRID_X_START :: (SCREEN_WIDTH - GRID_WIDTH) / 2
+START_LEVEL :: 3
 
 ParticleType :: enum {
 	Square,
@@ -542,7 +543,7 @@ main :: proc() {
 	monitorFPS = max(30, monitorFPS)
 	rl.SetTargetFPS(monitorFPS)
 	fmt.println("Using FPS=", monitorFPS)
-
+	current_level.Level_number =  START_LEVEL - 1
 	switch_to_starting()
 	// note, we should handle large dt better, we can tunnel through things for large dt
 
@@ -678,7 +679,7 @@ switch_to_gameover :: proc() {
 	proj_pos.y = SCREEN_HEIGHT + PROJ_RADIUS // hide
 	proj_velocity = {0, 0}
 	state = .GameOver
-	current_level.Level_number = 0
+	current_level.Level_number = START_LEVEL - 1
 }
 
 switch_to_victory :: proc() {

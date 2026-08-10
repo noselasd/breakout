@@ -65,9 +65,9 @@ level_3 :: proc() -> Level {
 	for row in 0 ..< TILE_ROWS {
 		for col in 0 ..< TILE_COLS {
 			tile := &tiles[col * TILE_ROWS + row]
-			if (row == 2 || row == 3 || row == 8 || row == 9) && col != 4 && col != 5 {
+			if (row != 3 && row != 4 &&  row != 5 && row != 9) {
 				tile.alive = true
-				tile.color = rl.RED if col < 5 else rl.GREEN
+				tile.color = rl.BLUE if row < 5 else rl.ORANGE
 				tile.position.x = GRID_X_START + f32(col) * (TILE_WIDTH + TILE_SPACING)
 				tile.position.y = WALL_WIDTH + 2.0 * TILE_HEIGHT + f32(row) * (TILE_HEIGHT + TILE_SPACING)
 				num_tiles += 1
