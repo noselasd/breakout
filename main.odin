@@ -48,7 +48,7 @@ BALL_TEX_MAP :: rl.Rectangle{160, 200, 16, 16}
 
 GRID_WIDTH :: TILE_WIDTH * TILE_COLS + (TILE_COLS - 1) * TILE_SPACING
 GRID_X_START :: (SCREEN_WIDTH - GRID_WIDTH) / 2
-START_LEVEL :: 3
+START_LEVEL :: 1
 
 ParticleType :: enum {
 	Square,
