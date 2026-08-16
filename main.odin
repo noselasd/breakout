@@ -11,6 +11,11 @@ SCREEN_HEIGHT :: 800
 
 WALL_WIDTH: f32 = 7.0
 
+// Orig arkanoid:
+// 11 columns, 28 rows , but bottow rows always empty, often max 11 rows
+// 121 tiles for biggest level
+// tiles 16 x 8 pixels
+
 TILE_WIDTH :: 70.0
 TILE_HEIGHT :: 25.0
 TILE_COLS :: 10
@@ -543,7 +548,7 @@ main :: proc() {
 	monitorFPS = max(30, monitorFPS)
 	rl.SetTargetFPS(monitorFPS)
 	fmt.println("Using FPS=", monitorFPS)
-	current_level.Level_number =  START_LEVEL - 1
+	current_level.Level_number = START_LEVEL - 1
 	switch_to_starting()
 	// note, we should handle large dt better, we can tunnel through things for large dt
 

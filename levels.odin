@@ -8,6 +8,44 @@ Level :: struct {
 	remaining_tiles: u8,
 	tiles:           []Tile,
 }
+TileKind :: enum {
+	Normal,
+	Unbreakable,
+	Blank,
+}
+
+TileType :: struct {
+	color: rl.Color,
+	lives: u8,
+	kind:  TileKind,
+}
+COL_SILVER :: rl.Color{192, 192, 192, 0}
+// odinfmt: disable
+RT :: TileType{rl.RED   ,   1, .Normal      }
+WT :: TileType{rl.WHITE ,   1, .Normal      }
+GT :: TileType{rl.GREEN ,   1, .Normal      }
+BT :: TileType{rl.RED   ,   1, .Normal      }
+YT :: TileType{rl.YELLOW,   1, .Normal      }
+OT :: TileType{rl.ORANGE,   2, .Normal      }
+GX :: TileType{COL_SILVER,  5, .Normal      }
+XX :: TileType{rl.GOLD  ,   1, .Unbreakable }
+R2 :: TileType{rl.RED   ,   1, .Normal      }
+__ :: TileType{rl.BLANK ,   0, .Blank       }
+
+level_x : [100]TileType = {
+	__,__,__,__,__,__,__,__,__,__,
+	RT,RT,RT,RT,RT,RT,RT,RT,RT,RT,
+	__,__,__,__,__,__,__,__,__,__,
+	__,__,__,__,__,__,__,__,__,__,
+	__,__,__,__,__,__,__,__,__,__,
+	__,__,__,__,__,__,__,__,__,__,
+	__,__,__,__,__,__,__,__,__,__,
+	__,__,__,__,__,__,__,__,__,__,
+	GT,GT,GT,GT,GT,GT,GT,GT,GT,GT,
+	__,__,__,__,__,__,__,__,__,__,
+}
+// odinfmt: enable
+
 init_level :: proc(level_number: u8) -> Level {
 	if level_number == 0 || level_number == 1 {
 		return level_1()
@@ -65,7 +103,7 @@ level_3 :: proc() -> Level {
 	for row in 0 ..< TILE_ROWS {
 		for col in 0 ..< TILE_COLS {
 			tile := &tiles[col * TILE_ROWS + row]
-			if (row != 3 && row != 4 &&  row != 5 && row != 9) {
+			if (row != 3 && row != 4 && row != 5 && row != 9) {
 				tile.alive = true
 				tile.color = rl.BLUE if row < 5 else rl.ORANGE
 				tile.position.x = GRID_X_START + f32(col) * (TILE_WIDTH + TILE_SPACING)
