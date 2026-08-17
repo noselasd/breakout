@@ -109,14 +109,14 @@ init_level :: proc(level_number: u8) -> Level {
 			tile_def := level[row * TILE_COLS + col]
 			tile := &tiles[row * TILE_COLS + col]
 			if tile_def.kind != .Blank {
-				tile.alive = true
+				tile.lives = tile_def.lives
 				tile.color = tile_def.color
 				tile.unbreakable = tile_def.kind == .Unbreakable
 				tile.position.x = GRID_X_START + f32(col) * (TILE_WIDTH + TILE_SPACING)
 				tile.position.y = WALL_WIDTH + 2.0 * TILE_HEIGHT + f32(row) * (TILE_HEIGHT + TILE_SPACING)
 				num_tiles += 1
 			} else {
-				tile.alive = false
+				tile.lives = 0
 			}
 		}
 	}

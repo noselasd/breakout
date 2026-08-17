@@ -70,7 +70,7 @@ Tile :: struct {
 	position:    rl.Vector2,
 	velocity:    rl.Vector2,
 	color:       rl.Color,
-	alive:       bool,
+	lives:       u8,
 	unbreakable: bool,
 }
 
@@ -138,7 +138,7 @@ particles_update :: proc(dt: f32) {
 		part.velocity.y += dt * PARTICLE_SPEED
 
 		for &tile in tiles {
-			if !tile.alive {
+			if tile.lives == 0 {
 				continue
 			}
 			coll := circle_rect_collide(
@@ -242,7 +242,7 @@ draw_projectile :: proc(pos: rl.Vector2) {
 
 draw_tiles :: proc() {
 	for &tile in tiles {
-		if tile.alive {
+		if tile.lives != 0 {
 			draw_tile(&tile)
 
 		}
@@ -362,7 +362,7 @@ projectile_collide :: proc(pos: ^rl.Vector2, velocity: ^rl.Vector2) -> Projectil
 
 	rect := rl.Rectangle{0, 0, TILE_WIDTH, TILE_HEIGHT}
 	for &tile in tiles {
-		if !tile.alive {
+		if tile.lives == 0 {
 			continue
 		}
 		rect.x = tile.position.x
@@ -379,10 +379,16 @@ projectile_collide :: proc(pos: ^rl.Vector2, velocity: ^rl.Vector2) -> Projectil
 			pos^ += coll.normal * coll.overlap // push back projectile
 			// Note, collision detection is cooked - we can get tunneling
 			if !tile.unbreakable {
-				tile.alive = false
-				area := rl.Rectangle{tile.position.x, tile.position.y, TILE_WIDTH, TILE_HEIGHT}
-				particle_erupt(area, tile.color, 12, 1, 6, .Square, .6)
-				return {.TileDestroyed}
+				tile.lives -= 1
+				if tile.lives == 0 {
+					area := rl.Rectangle{tile.position.x, tile.position.y, TILE_WIDTH, TILE_HEIGHT}
+					particle_erupt(area, tile.color, 12, 1, 6, .Square, .6)
+					return {.TileDestroyed}
+				} else {
+					particle_erupt(area, tile.color, 6, 1, 4, .Square, .3)
+					return {.Bounced}
+
+				}
 			} else {
 				return {.Bounced}
 			}
