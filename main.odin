@@ -6,21 +6,21 @@ import "core:math/linalg"
 import "core:math/rand"
 import rl "vendor:raylib"
 
-SCREEN_WIDTH :: 1200
-SCREEN_HEIGHT :: 800
+SCREEN_WIDTH :: 800
+SCREEN_HEIGHT :: 1024
 
-WALL_WIDTH: f32 = 7.0
+WALL_WIDTH :: 7.0
 
 // Orig arkanoid:
 // 11 columns, 28 rows , but bottow rows always empty, often max 11 rows
 // 121 tiles for biggest level
 // tiles 16 x 8 pixels
 
-TILE_WIDTH :: 70.0
-TILE_HEIGHT :: 25.0
-TILE_COLS :: 10
-TILE_ROWS :: 10
-TILE_SPACING :: 15.0
+TILE_WIDTH :: 64
+TILE_HEIGHT :: 32
+TILE_COLS :: 11
+TILE_ROWS :: 15
+TILE_SPACING :: 8
 
 BAR_SPEED :: 800.0
 
@@ -34,9 +34,9 @@ PAD_Y_POS :: SCREEN_HEIGHT - 50.0
 PARTICLES_MAX :: 256
 PARTICLE_SPEED :: 150
 
-SCORE_X_OFFSET :: 24
 SCORE_FONT_SIZE :: 18
-SCORE_Y_OFFSET :: SCORE_FONT_SIZE * 2
+SCORE_X_OFFSET :: WALL_WIDTH + 3
+SCORE_Y_OFFSET :: WALL_WIDTH + 3
 
 // center points
 LIVES_X_OFFSET :: SCORE_X_OFFSET + PROJ_RADIUS
@@ -48,7 +48,8 @@ BALL_TEX_MAP :: rl.Rectangle{160, 200, 16, 16}
 
 GRID_WIDTH :: TILE_WIDTH * TILE_COLS + (TILE_COLS - 1) * TILE_SPACING
 GRID_X_START :: (SCREEN_WIDTH - GRID_WIDTH) / 2
-START_LEVEL :: 1
+// 0 indexed. The displayed level is +1
+START_LEVEL :: 0
 
 ParticleType :: enum {
 	Square,
@@ -272,7 +273,7 @@ draw_screen_text :: proc(text: ScreenText) {
 draw_score :: proc() {
 	text := fmt.ctprintf(
 		"Level %02d : %03d/%03d",
-		current_level.Level_number,
+		current_level.Level_number + 1,
 		current_level.total_tiles - current_level.remaining_tiles,
 		current_level.total_tiles,
 	)
@@ -548,14 +549,13 @@ main :: proc() {
 	monitorFPS = max(30, monitorFPS)
 	rl.SetTargetFPS(monitorFPS)
 	fmt.println("Using FPS=", monitorFPS)
-	current_level.Level_number = START_LEVEL - 1
-	switch_to_starting()
+	switch_to_starting(START_LEVEL)
 	// note, we should handle large dt better, we can tunnel through things for large dt
 
 	for !rl.WindowShouldClose() {
 		dt := rl.GetFrameTime()
 		if rl.IsKeyPressed(.R) {
-			switch_to_starting()
+			switch_to_starting(current_level.Level_number)
 		}
 		switch state {
 		case .Starting:
@@ -595,7 +595,7 @@ main :: proc() {
 			}
 		case .GameOver:
 			if rl.IsKeyPressed(.SPACE) {
-				switch_to_starting()
+				switch_to_starting(START_LEVEL)
 			}
 			game_update(dt, state)
 
@@ -607,7 +607,7 @@ main :: proc() {
 			}
 
 			if rl.IsKeyPressed(.SPACE) {
-				switch_to_starting()
+				switch_to_starting(current_level.Level_number + 1)
 			}
 			game_update(dt, state)
 
@@ -649,8 +649,8 @@ handle_killed :: proc() {
 	}
 }
 
-switch_to_starting :: proc() {
-	current_level = init_level(current_level.Level_number + 1)
+switch_to_starting :: proc(level_number: u8) {
+	current_level = init_level(level_number)
 	center_pad()
 	particles_reset()
 
@@ -684,7 +684,6 @@ switch_to_gameover :: proc() {
 	proj_pos.y = SCREEN_HEIGHT + PROJ_RADIUS // hide
 	proj_velocity = {0, 0}
 	state = .GameOver
-	current_level.Level_number = START_LEVEL - 1
 }
 
 switch_to_victory :: proc() {
