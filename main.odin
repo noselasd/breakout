@@ -380,8 +380,8 @@ projectile_collide :: proc(pos: ^rl.Vector2, velocity: ^rl.Vector2) -> Projectil
 			// Note, collision detection is cooked - we can get tunneling
 			if !tile.unbreakable {
 				tile.lives -= 1
+				area := rl.Rectangle{tile.position.x, tile.position.y, TILE_WIDTH, TILE_HEIGHT}
 				if tile.lives == 0 {
-					area := rl.Rectangle{tile.position.x, tile.position.y, TILE_WIDTH, TILE_HEIGHT}
 					particle_erupt(area, tile.color, 12, 1, 6, .Square, .6)
 					return {.TileDestroyed}
 				} else {

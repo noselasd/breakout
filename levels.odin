@@ -19,23 +19,32 @@ TileType :: struct {
 	lives: u8,
 	kind:  TileKind,
 }
-COL_SILVER :: rl.Color{192, 192, 192, 255}
-COL_LIGHTBLUE :: rl.Color{173, 216, 230, 255}
+COL_WHITE :: rl.Color{252, 252, 252, 255}
+COL_ORANGE :: rl.Color{252, 116, 96, 255}
+COL_LIGHTBLUE :: rl.Color{60, 188, 252, 255}
+COL_GREEN :: rl.Color{128, 208, 16, 255}
+COL_RED :: rl.Color{216, 40, 0, 255}
+COL_BLUE :: rl.Color{0, 112, 236, 255}
+COL_PINK :: rl.Color{252, 116, 180, 255}
+COL_YELLOW :: rl.Color{252, 152, 56, 255}
+COL_SILVER :: rl.Color{188, 188, 188, 255}
+COL_GOLD :: rl.Color{240, 188, 60, 255}
+
 // odinfmt: disable
-WT :: TileType{rl.WHITE ,       1, .Normal      } // 50 points
-OT :: TileType{rl.ORANGE,       1, .Normal      } // 60 points
-LB :: TileType{COL_LIGHTBLUE,   1, .Normal      } // 70 points
-GT :: TileType{rl.GREEN ,       1, .Normal      } // 80 points
-RT :: TileType{rl.RED   ,       1, .Normal      } // 90 points
-BT :: TileType{rl.BLUE   ,      1, .Normal      } //100  points
-PT :: TileType{rl.PINK,         1, .Normal      } //110  points
-YT :: TileType{rl.YELLOW,       1, .Normal      } //120  points
-S2 :: TileType{COL_SILVER,      2, .Normal      } // silver: 50 * level
-S3 :: TileType{COL_SILVER,      3, .Normal      }
-S4 :: TileType{COL_SILVER,      4, .Normal      }
-S5 :: TileType{COL_SILVER,      5, .Normal      }
-XX :: TileType{rl.GOLD  ,       1, .Unbreakable }
-__ :: TileType{rl.BLANK ,       0, .Blank       }
+WT :: TileType{COL_WHITE ,       1, .Normal      } // 50 points
+OT :: TileType{COL_ORANGE,       1, .Normal      } // 60 points
+LB :: TileType{COL_LIGHTBLUE,    1, .Normal      } // 70 points
+GT :: TileType{COL_GREEN,        1, .Normal      } // 80 points
+RT :: TileType{COL_RED,          1, .Normal      } // 90 points
+BT :: TileType{COL_BLUE,         1, .Normal      } //100  points
+PT :: TileType{COL_PINK,         1, .Normal      } //110  points
+YT :: TileType{COL_YELLOW,       1, .Normal      } //120  points
+S2 :: TileType{COL_SILVER,       2, .Normal      } // silver: 50 * level
+S3 :: TileType{COL_SILVER,       3, .Normal      }
+S4 :: TileType{COL_SILVER,       4, .Normal      }
+S5 :: TileType{COL_SILVER,       5, .Normal      }
+XX :: TileType{COL_GOLD,         1, .Unbreakable }
+__ :: TileType{rl.BLANK,         0, .Blank       }
 
 // 0 indexed. The displayed level is +1
 levels :[][TILE_ROWS * TILE_COLS]TileType= {
