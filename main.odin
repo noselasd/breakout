@@ -555,9 +555,9 @@ main :: proc() {
 	monitorFPS = max(30, monitorFPS)
 	rl.SetTargetFPS(monitorFPS)
 	fmt.println("Using FPS=", monitorFPS)
+	new_game()
 	switch_to_starting(START_LEVEL)
 	// note, we should handle large dt better, we can tunnel through things for large dt
-
 	for !rl.WindowShouldClose() {
 		dt := rl.GetFrameTime()
 		if rl.IsKeyPressed(.R) {
@@ -601,6 +601,7 @@ main :: proc() {
 			}
 		case .GameOver:
 			if rl.IsKeyPressed(.SPACE) {
+				new_game()
 				switch_to_starting(START_LEVEL)
 			}
 			game_update(dt, state)
@@ -655,6 +656,10 @@ handle_killed :: proc() {
 	}
 }
 
+new_game :: proc() {
+	lives = 5
+}
+
 switch_to_starting :: proc(level_number: u8) {
 	current_level = init_level(level_number)
 	center_pad()
@@ -664,8 +669,6 @@ switch_to_starting :: proc(level_number: u8) {
 	screen_text.active = true
 	screen_text.section = .Bottom
 	screen_text.text = "Press (space) to start"
-	lives = 5
-
 	state = .Starting
 }
 
