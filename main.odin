@@ -50,6 +50,7 @@ GRID_WIDTH :: TILE_WIDTH * TILE_COLS + (TILE_COLS - 1) * TILE_SPACING
 GRID_X_START :: (SCREEN_WIDTH - GRID_WIDTH) / 2
 // 0 indexed. The displayed level is +1
 START_LEVEL :: 0
+FONT_SIZE :: 64
 
 ParticleType :: enum {
 	Square,
@@ -80,9 +81,11 @@ ScreenTextSection :: enum {
 	Bottom,
 }
 ScreenText :: struct {
-	text:    cstring,
-	active:  bool,
-	section: ScreenTextSection,
+	text:       cstring,
+	font_size:  i32,
+	text_width: i32,
+	active:     bool,
+	section:    ScreenTextSection,
 }
 
 Event :: enum {
@@ -249,13 +252,18 @@ draw_tiles :: proc() {
 	}
 }
 
+set_screen_text :: proc(section: ScreenTextSection, text: cstring) {
+	screen_text.active = true
+	screen_text.section = section
+	screen_text.text = text
+	screen_text.text_width = rl.MeasureText(screen_text.text, screen_text.font_size)
+}
+
 draw_screen_text :: proc(text: ScreenText) {
 	if (!text.active) {
 		return
 	}
 
-	font_size: i32 = 64
-	text_width := rl.MeasureText(screen_text.text, font_size)
 	section: i32 = ---
 	switch text.section {
 	case .Top:
@@ -265,9 +273,9 @@ draw_screen_text :: proc(text: ScreenText) {
 	case .Bottom:
 		section = (SCREEN_HEIGHT / 3) * 2
 	}
-	text_x := i32(SCREEN_WIDTH) / 2 - text_width / 2
-	text_y := section - font_size / 2
-	rl.DrawText(screen_text.text, text_x, text_y, font_size, rl.BLACK)
+	text_x := i32(SCREEN_WIDTH) / 2 - screen_text.text_width / 2
+	text_y := section - screen_text.font_size / 2
+	rl.DrawText(screen_text.text, text_x, text_y, screen_text.font_size, rl.BLACK)
 }
 
 draw_score :: proc() {
@@ -555,8 +563,8 @@ main :: proc() {
 	monitorFPS = max(30, monitorFPS)
 	rl.SetTargetFPS(monitorFPS)
 	fmt.println("Using FPS=", monitorFPS)
-	new_game()
-	switch_to_starting(START_LEVEL)
+	screen_text.font_size = FONT_SIZE
+	switch_to_new_game()
 	// note, we should handle large dt better, we can tunnel through things for large dt
 	for !rl.WindowShouldClose() {
 		dt := rl.GetFrameTime()
@@ -601,8 +609,7 @@ main :: proc() {
 			}
 		case .GameOver:
 			if rl.IsKeyPressed(.SPACE) {
-				new_game()
-				switch_to_starting(START_LEVEL)
+				switch_to_new_game()
 			}
 			game_update(dt, state)
 
@@ -635,11 +642,10 @@ celebrate :: proc() {
 
 toggle_pause :: proc() {
 	paused = !paused
-	screen_text.active = paused
-	screen_text.section = .Bottom
 	if paused {
-		screen_text.text = "PAUSED"
+		set_screen_text(.Bottom, "PAUSED")
 	}
+	screen_text.active = paused
 }
 
 handle_killed :: proc() {
@@ -656,8 +662,9 @@ handle_killed :: proc() {
 	}
 }
 
-new_game :: proc() {
+switch_to_new_game :: proc() {
 	lives = 5
+	switch_to_starting(START_LEVEL)
 }
 
 switch_to_starting :: proc(level_number: u8) {
@@ -666,9 +673,7 @@ switch_to_starting :: proc(level_number: u8) {
 	particles_reset()
 
 	paused = false
-	screen_text.active = true
-	screen_text.section = .Bottom
-	screen_text.text = "Press (space) to start"
+	set_screen_text(.Bottom, "Press (space) to start")
 	state = .Starting
 }
 
@@ -687,18 +692,15 @@ switch_to_playing :: proc() {
 }
 
 switch_to_gameover :: proc() {
-	screen_text.active = true
-	screen_text.section = .Bottom
-	screen_text.text = "Game Over"
+	set_screen_text(.Middle, "Game Over")
+
 	proj_pos.y = SCREEN_HEIGHT + PROJ_RADIUS // hide
 	proj_velocity = {0, 0}
 	state = .GameOver
 }
 
 switch_to_victory :: proc() {
-	screen_text.active = true
-	screen_text.section = .Middle
-	screen_text.text = "Victory !"
+	set_screen_text(.Middle, "Victory !")
 	proj_pos.y = SCREEN_HEIGHT + PROJ_RADIUS // hide
 	proj_velocity = {0, 0}
 	state = .Victory
