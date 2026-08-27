@@ -120,10 +120,10 @@ spawn_particle :: proc(pos: rl.Vector2, color: rl.Color, min_size, max_size: f32
 	part.lifetime = lifetime
 	part.type = type
 	part.color = color
-	part.size = rand.float32() * (max_size - min_size) + min_size
+	part.size = rand.float32_range(min_size, max_size)
 	part.position = pos
-	vx := rand.float32() * 2 - 1
-	vy := rand.float32() * 2 - 1
+	vx := rand.float32_range(-1, 1)
+	vy := rand.float32_range(-1, 1)
 	part.velocity.x = f32(vx) * PARTICLE_SPEED
 	part.velocity.y = vy * PARTICLE_SPEED
 }
@@ -170,8 +170,9 @@ particle_erupt :: proc(
 	lifetime: f32,
 ) {
 	for _ in 0 ..< particle_count {
-		x := rand.float32() * (area.x + area.width - area.x) + area.x
-		y := rand.float32() * (area.y + area.height - area.y) + area.y
+		x := rand.float32_range(area.x, area.x + area.width)
+		y := rand.float32_range(area.y, area.y + area.height)
+
 		spawn_particle({x, y}, color, min_size, max_size, type, lifetime)
 	}
 }
@@ -498,13 +499,13 @@ game_update :: proc(dt: f32, state: State) -> bool {
 		tile_destoyed := .TileDestroyed in event
 		if tile_destoyed {
 			current_level.remaining_tiles -= 1
-			rl.SetSoundPitch(sound_destroy, rand.float32() * (1.2 - 0.8) + 0.8)
+			rl.SetSoundPitch(sound_destroy, rand.float32_range(0.8, 1.2))
 			rl.PlaySound(sound_destroy)
 
 		}
 		collided := pad_collide(&proj_pos, &proj_velocity, pad_x)
 		if collided || .Bounced in event {
-			rl.SetSoundPitch(sound_bounce, rand.float32() * (1.2 - 0.8) + 0.8)
+			rl.SetSoundPitch(sound_bounce, rand.float32_range(0.8, 1.2))
 			rl.PlaySound(sound_bounce)
 		}
 
@@ -635,8 +636,8 @@ main :: proc() {
 
 celebrate :: proc() {
 	@(static) colors := [?]rl.Color{PROJ_COLOR, rl.RED, rl.GREEN, rl.WHITE, rl.BLUE}
-	x := rand.float32() * (SCREEN_WIDTH - WALL_WIDTH * 4) + WALL_WIDTH * 2
-	y := rand.float32() * (SCREEN_WIDTH - WALL_WIDTH * 4) + WALL_WIDTH * 2
+	x := rand.float32_range(WALL_WIDTH * 4, SCREEN_WIDTH - WALL_WIDTH * 4)
+	y := rand.float32_range(WALL_WIDTH * 4, SCREEN_HEIGHT - WALL_WIDTH * 4)
 	particle_erupt(rl.Rectangle{x, y, TILE_WIDTH, TILE_HEIGHT}, rand.choice(colors[:]), 12, 1, 8, .Circle, 2.)
 }
 
