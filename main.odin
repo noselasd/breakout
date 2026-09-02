@@ -6,7 +6,7 @@ import "core:math/linalg"
 import "core:math/rand"
 import rl "vendor:raylib"
 
-SCREEN_WIDTH :: 800
+SCREEN_WIDTH :: 788
 SCREEN_HEIGHT :: 1024
 
 WALL_WIDTH :: 7.0
@@ -20,7 +20,7 @@ TILE_WIDTH :: 64
 TILE_HEIGHT :: 32
 TILE_COLS :: 11
 TILE_ROWS :: 15
-TILE_SPACING :: 8
+TILE_SPACING :: 6
 
 BAR_SPEED :: 800.0
 
@@ -49,7 +49,7 @@ BALL_TEX_MAP :: rl.Rectangle{160, 200, 16, 16}
 GRID_WIDTH :: TILE_WIDTH * TILE_COLS + (TILE_COLS - 1) * TILE_SPACING
 GRID_X_START :: (SCREEN_WIDTH - GRID_WIDTH) / 2
 // 0 indexed. The displayed level is +1
-START_LEVEL :: 0
+START_LEVEL :: 3
 FONT_SIZE :: 64
 
 ParticleType :: enum {

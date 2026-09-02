@@ -48,7 +48,7 @@ __ :: TileType{rl.BLANK,         0, .Blank       }
 
 // 0 indexed. The displayed level is +1
 levels :[][TILE_ROWS * TILE_COLS]TileType= {
-	 {
+	{ // 0
 		__,__,__,__,__,__,__,__,__,__,__,
 		RT,RT,RT,RT,RT,RT,RT,RT,RT,RT,RT,
 		__,__,__,__,__,__,__,__,__,__,__,
@@ -65,7 +65,7 @@ levels :[][TILE_ROWS * TILE_COLS]TileType= {
 		__,__,__,__,__,__,__,__,__,__,__,
 		__,__,__,__,__,__,__,__,__,__,__,
 	},
-	{
+	{ // 1
 		OT,__,__,__,__,__,__,__,__,__,__,
 		OT,LB,__,__,__,__,__,__,__,__,__,
 		OT,LB,GT,__,__,__,__,__,__,__,__,
@@ -82,7 +82,7 @@ levels :[][TILE_ROWS * TILE_COLS]TileType= {
 		__,__,__,__,__,__,__,__,__,__,__,
 		__,__,__,__,__,__,__,__,__,__,__,
 	},
-	{
+	{ // 2
 		__,__,__,OT,__,__,__,OT,__,__,__,
 		__,__,__,__,OT,__,OT,__,__,__,__,
 		__,__,__,__,OT,__,OT,__,__,__,__,
@@ -98,7 +98,25 @@ levels :[][TILE_ROWS * TILE_COLS]TileType= {
 		__,__,__,__,S2,__,S2,__,__,__,__,
 		__,__,__,__,S2,__,S2,__,__,__,__,
 		__,__,__,__,__,__,__,__,__,__,__,
-	}
+	},
+
+		 { // 3
+		XX,XX,__,__,__,__,__,__,__,__,__,
+		__,__,__,__,__,__,__,__,__,__,__,
+		__,XX,__,__,__,__,__,__,__,__,__,
+		__,XX,__,__,__,__,__,__,__,__,__,
+		__,XX,__,__,__,__,__,__,__,__,__,
+		__,XX,__,__,__,__,BT,__,__,__,__,
+		__,XX,__,__,__,BT,LB,BT,__,__,__,
+		__,XX,__,__,BT,LB,BT,LB,BT,__,__,
+		__,XX,__,BT,LB,BT,S2,BT,LB,BT,__,
+		__,XX,__,__,BT,LB,BT,LB,BT,__,__,
+		__,XX,__,__,__,BT,LB,BT,__,__,__,
+		__,XX,__,__,__,__,BT,__,__,__,__,
+		__,XX,__,__,__,__,__,__,__,__,__,
+		__,XX,__,__,__,__,__,__,__,__,__,
+		__,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX
+	},
 }
 // odinfmt: enable
 
@@ -116,10 +134,11 @@ init_level :: proc(level_number: u8) -> Level {
 				tile.unbreakable = tile_def.kind == .Unbreakable
 				tile.position.x = GRID_X_START + f32(col) * (TILE_WIDTH + TILE_SPACING)
 				tile.position.y = WALL_WIDTH + 2.0 * TILE_HEIGHT + f32(row) * (TILE_HEIGHT + TILE_SPACING)
-				num_tiles += 1
-			} else {
-				tile.lives = 0
 			}
+			if tile_def.kind == .Normal {
+				num_tiles += 1
+			}
+
 		}
 	}
 	return Level{Level_number = level_number, total_tiles = num_tiles, remaining_tiles = num_tiles, tiles = tiles[:]}
