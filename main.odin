@@ -397,30 +397,21 @@ projectile_collide :: proc(ball: ^Projectile) -> ProjectileEvent {
 
 			if ball.prev_pos.x > tile.position.x + TILE_WIDTH {
 				ball.velocity.x = -ball.velocity.x
-				//	ball.pos.x = tile.position.x + TILE_WIDTH + PROJ_RADIUS
+				ball.pos.x = tile.position.x + TILE_WIDTH + PROJ_RADIUS
 			} else if ball.prev_pos.x < tile.position.x {
 				ball.velocity.x = -ball.velocity.x
-				//	ball.pos.x = tile.position.x - PROJ_RADIUS
+				ball.pos.x = tile.position.x - PROJ_RADIUS
 			}
 
 			if ball.prev_pos.y > tile.position.y + TILE_HEIGHT {
 				ball.velocity.y = -ball.velocity.y
-				//	ball.pos.y = ball.pos.y + TILE_HEIGHT + PROJ_RADIUS
+				ball.pos.y = tile.position.y + TILE_HEIGHT + PROJ_RADIUS
 
 			} else if ball.prev_pos.y < tile.position.y {
 				ball.velocity.y = -ball.velocity.y
-				//	ball.pos.y = ball.pos.y - PROJ_RADIUS
+				ball.pos.y = tile.position.y - PROJ_RADIUS
 			}
 
-			ball.pos += coll.normal * coll.overlap // push back projectile
-
-			// if coll.side == .Left || coll.side == .Right {
-			// 	ball.velocity.x = -ball.velocity.x
-			// } else {
-			// 	ball.velocity.y = -ball.velocity.y
-			// }
-			// ball.pos += coll.normal * coll.overlap // push back projectile
-			// Note, collision detection is cooked - we can get tunneling
 			if !tile.unbreakable {
 				tile.lives -= 1
 				area := rl.Rectangle{tile.position.x, tile.position.y, TILE_WIDTH, TILE_HEIGHT}
