@@ -93,6 +93,13 @@ Event :: enum {
 	TileDestroyed,
 	Bounced,
 }
+
+Projectile :: struct {
+	pos:      rl.Vector2,
+	velocity: rl.Vector2,
+	prev_pos: rl.Vector2,
+}
+
 ProjectileEvent :: bit_set[Event]
 
 timer_expired :: proc(dt: f32, timer: ^f32, timeout: f32) -> bool {
@@ -214,8 +221,9 @@ draw_tile :: proc(tile: ^Tile) {
 
 
 attach_projectile_to_pad :: proc() {
-	proj_pos = rl.Vector2{pad_x + PAD_WIDTH / 2.0, SCREEN_HEIGHT - 50 - PROJ_RADIUS}
-	proj_velocity = 0
+	ball.pos = rl.Vector2{pad_x + PAD_WIDTH / 2.0, SCREEN_HEIGHT - 50 - PROJ_RADIUS}
+	ball.prev_pos = ball.pos
+	ball.velocity = 0
 }
 
 move_pad :: proc(dt: f32, pad_x: f32) -> f32 {
@@ -302,7 +310,7 @@ center_pad :: proc() {
 }
 
 proj_area :: proc() -> rl.Rectangle {
-	return rl.Rectangle{proj_pos.x - PROJ_RADIUS, proj_pos.y - PROJ_RADIUS, PROJ_RADIUS * 2, PROJ_RADIUS * 2}
+	return rl.Rectangle{ball.pos.x - PROJ_RADIUS, ball.pos.y - PROJ_RADIUS, PROJ_RADIUS * 2, PROJ_RADIUS * 2}
 }
 
 pad_collide :: proc(pos: ^rl.Vector2, velocity: ^rl.Vector2, pad_pos_x: f32) -> bool {
@@ -340,32 +348,38 @@ pad_collide :: proc(pos: ^rl.Vector2, velocity: ^rl.Vector2, pad_pos_x: f32) -> 
 	return collided
 }
 
-projectile_collide :: proc(pos: ^rl.Vector2, velocity: ^rl.Vector2) -> ProjectileEvent {
+reflect :: proc(dir, normal: rl.Vector2) -> rl.Vector2 {
+	new_direction := linalg.reflect(dir, linalg.normalize(normal))
+	return linalg.normalize(new_direction)
+}
+
+
+projectile_collide :: proc(ball: ^Projectile) -> ProjectileEvent {
 
 	// left wall
-	if pos.x - PROJ_RADIUS <= WALL_WIDTH {
-		pos.x = WALL_WIDTH + PROJ_RADIUS
-		velocity.x = -velocity.x
+	if ball.pos.x - PROJ_RADIUS <= WALL_WIDTH {
+		ball.pos.x = WALL_WIDTH + PROJ_RADIUS
+		ball.velocity.x = -ball.velocity.x
 		return {.Bounced}
 	}
-	// right wal
-	if pos.x + PROJ_RADIUS >= SCREEN_WIDTH - WALL_WIDTH {
-		velocity.x = -velocity.x
-		pos.x = SCREEN_WIDTH - WALL_WIDTH - PROJ_RADIUS
+	// right wall
+	if ball.pos.x + PROJ_RADIUS >= SCREEN_WIDTH - WALL_WIDTH {
+		ball.velocity.x = -ball.velocity.x
+		ball.pos.x = SCREEN_WIDTH - WALL_WIDTH - PROJ_RADIUS
 		return {.Bounced}
 	}
 
 	// top
-	if pos.y - PROJ_RADIUS <= WALL_WIDTH {
-		velocity.y = -velocity.y
-		pos.y = WALL_WIDTH + PROJ_RADIUS
+	if ball.pos.y - PROJ_RADIUS <= WALL_WIDTH {
+		ball.velocity.y = -ball.velocity.y
+		ball.pos.y = WALL_WIDTH + PROJ_RADIUS
 		return {.Bounced}
 	}
 
 	//bottom
-	if pos.y + PROJ_RADIUS >= SCREEN_HEIGHT {
-		velocity.y = -velocity.y
-		pos.y = SCREEN_HEIGHT
+	if ball.pos.y + PROJ_RADIUS >= SCREEN_HEIGHT {
+		ball.pos.y = -ball.velocity.y
+		ball.pos.y = SCREEN_HEIGHT
 		return {.Killed}
 	}
 
@@ -376,16 +390,36 @@ projectile_collide :: proc(pos: ^rl.Vector2, velocity: ^rl.Vector2) -> Projectil
 		}
 		rect.x = tile.position.x
 		rect.y = tile.position.y
-		coll := circle_rect_collide(pos^, PROJ_RADIUS, rect)
+		coll := circle_rect_collide(ball.pos, PROJ_RADIUS, rect)
 		if coll.side != .None {
 			// Not reflecting this, we don't want to end up with pure
 			// horizontal or vertical movement
-			if coll.side == .Left || coll.side == .Right {
-				velocity.x = -velocity.x
-			} else {
-				velocity.y = -velocity.y
+
+			if ball.prev_pos.x > tile.position.x + TILE_WIDTH {
+				ball.velocity.x = -ball.velocity.x
+				//	ball.pos.x = tile.position.x + TILE_WIDTH + PROJ_RADIUS
+			} else if ball.prev_pos.x < tile.position.x {
+				ball.velocity.x = -ball.velocity.x
+				//	ball.pos.x = tile.position.x - PROJ_RADIUS
 			}
-			pos^ += coll.normal * coll.overlap // push back projectile
+
+			if ball.prev_pos.y > tile.position.y + TILE_HEIGHT {
+				ball.velocity.y = -ball.velocity.y
+				//	ball.pos.y = ball.pos.y + TILE_HEIGHT + PROJ_RADIUS
+
+			} else if ball.prev_pos.y < tile.position.y {
+				ball.velocity.y = -ball.velocity.y
+				//	ball.pos.y = ball.pos.y - PROJ_RADIUS
+			}
+
+			ball.pos += coll.normal * coll.overlap // push back projectile
+
+			// if coll.side == .Left || coll.side == .Right {
+			// 	ball.velocity.x = -ball.velocity.x
+			// } else {
+			// 	ball.velocity.y = -ball.velocity.y
+			// }
+			// ball.pos += coll.normal * coll.overlap // push back projectile
 			// Note, collision detection is cooked - we can get tunneling
 			if !tile.unbreakable {
 				tile.lives -= 1
@@ -477,8 +511,7 @@ circle_rect_collide :: proc(circle_pos: rl.Vector2, circle_radius: f32, rect: rl
 }
 
 pad_x: f32
-proj_pos: rl.Vector2
-proj_velocity: rl.Vector2
+ball: Projectile
 screen_text: ScreenText
 paused := false
 particles: [PARTICLES_MAX]Particle
@@ -492,9 +525,10 @@ current_level: Level
 game_update :: proc(dt: f32, state: State) -> bool {
 	killed: bool
 	pad_x = move_pad(dt, pad_x)
-	proj_pos = proj_pos + proj_velocity * dt
+	ball.prev_pos = ball.pos
+	ball.pos = ball.pos + ball.velocity * dt
 	if state == .Playing {
-		event := projectile_collide(&proj_pos, &proj_velocity)
+		event := projectile_collide(&ball)
 		killed = .Killed in event
 		tile_destoyed := .TileDestroyed in event
 		if tile_destoyed {
@@ -503,7 +537,7 @@ game_update :: proc(dt: f32, state: State) -> bool {
 			rl.PlaySound(sound_destroy)
 
 		}
-		collided := pad_collide(&proj_pos, &proj_velocity, pad_x)
+		collided := pad_collide(&ball.pos, &ball.velocity, pad_x)
 		if collided || .Bounced in event {
 			rl.SetSoundPitch(sound_bounce, rand.float32_range(0.8, 1.2))
 			rl.PlaySound(sound_bounce)
@@ -521,7 +555,7 @@ game_draw :: proc() {
 
 	draw_walls()
 	draw_tiles()
-	draw_projectile(proj_pos)
+	draw_projectile(ball.pos)
 	draw_particles()
 	draw_pad(pad_x)
 	draw_screen_text(screen_text)
@@ -596,8 +630,8 @@ main :: proc() {
 		case .Dead:
 			reached_pad := move_towards(
 				dt,
-				&proj_pos,
-				&proj_velocity,
+				&ball.pos,
+				&ball.velocity,
 				{pad_x + PAD_WIDTH / 2, PAD_Y_POS - PROJ_RADIUS},
 				PROJ_SPEED * 1.667,
 			)
@@ -651,14 +685,14 @@ toggle_pause :: proc() {
 
 handle_killed :: proc() {
 	particle_erupt(proj_area(), PROJ_COLOR, 10, 2, PROJ_RADIUS / 2, .Circle, 2)
-	proj_velocity = {0, 0}
+	ball.velocity = {0, 0}
 
 	lives -= 1
 	rl.PlaySound(sound_died)
 	if lives == 0 {
 		switch_to_gameover()
 	} else {
-		proj_pos = {LIVES_X_OFFSET * f32(lives), LIVES_Y_OFFSET}
+		ball.pos = {LIVES_X_OFFSET * f32(lives), LIVES_Y_OFFSET}
 		state = .Dead
 	}
 }
@@ -687,7 +721,7 @@ switch_to_playing :: proc() {
 	if rl.IsKeyDown(.RIGHT) {
 		left_or_right = 1.0
 	}
-	proj_velocity = {left_or_right * PROJ_SPEED / math.SQRT_TWO, -PROJ_SPEED / math.SQRT_TWO}
+	ball.velocity = {left_or_right * PROJ_SPEED / math.SQRT_TWO, -PROJ_SPEED / math.SQRT_TWO}
 
 	state = .Playing
 }
@@ -695,15 +729,15 @@ switch_to_playing :: proc() {
 switch_to_gameover :: proc() {
 	set_screen_text(.Middle, "Game Over")
 
-	proj_pos.y = SCREEN_HEIGHT + PROJ_RADIUS // hide
-	proj_velocity = {0, 0}
+	ball.pos.y = SCREEN_HEIGHT + PROJ_RADIUS // hide
+	ball.velocity = {0, 0}
 	state = .GameOver
 }
 
 switch_to_victory :: proc() {
 	set_screen_text(.Middle, "Victory !")
-	proj_pos.y = SCREEN_HEIGHT + PROJ_RADIUS // hide
-	proj_velocity = {0, 0}
+	ball.pos.y = SCREEN_HEIGHT + PROJ_RADIUS // hide
+	ball.velocity = {0, 0}
 	state = .Victory
 	celebrate_timer = celebrate_cooldown
 }
