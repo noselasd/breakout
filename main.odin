@@ -29,6 +29,7 @@ BALL_SPEED :: 512
 BALL_COLOR :: rl.Color{192, 192, 192, 255}
 
 PAD_WIDTH :: 128.0
+PAD_HEIGHT :: 24
 PAD_Y_POS :: SCREEN_HEIGHT - 50.0
 
 PARTICLES_MAX :: 256
@@ -43,13 +44,13 @@ LIVES_X_OFFSET :: SCORE_X_OFFSET + BALL_RADIUS
 LIVES_Y_OFFSET :: SCORE_Y_OFFSET + SCORE_FONT_SIZE + BALL_RADIUS
 LIVES_SPACING :: 5
 
-BIG_PAD_TEX_MAP :: rl.Rectangle{0, 280, 128, 24}
-BALL_TEX_MAP :: rl.Rectangle{160, 200, 16, 16}
+BIG_PAD_TEX_MAP :: rl.Rectangle{0, 280, PAD_WIDTH, PAD_HEIGHT}
+BALL_TEX_MAP :: rl.Rectangle{160, 200, BALL_RADIUS * 2, BALL_RADIUS * 2}
 
 GRID_WIDTH :: TILE_WIDTH * TILE_COLS + (TILE_COLS - 1) * TILE_SPACING
 GRID_X_START :: (SCREEN_WIDTH - GRID_WIDTH) / 2
 // 0 indexed. The displayed level is +1
-START_LEVEL :: 3
+START_LEVEL :: 0
 FONT_SIZE :: 64
 
 ParticleType :: enum {
@@ -321,13 +322,33 @@ pad_collide :: proc(ball: ^Movable, pad_pos: rl.Vector2) -> bool {
 	pad_rect := rl.Rectangle{pad.position.x, pad.position.y, PAD_WIDTH, TILE_HEIGHT}
 	coll := circle_rect_collide(ball.position, BALL_RADIUS, pad_rect)
 	if coll.side != .None {
-		ball.position += coll.normal * coll.overlap // push back ball
-		if coll.side == .Left || coll.side == .Right {
-			ball.velocity.x = -ball.velocity.x
-		} else if coll.side == .Top {
+		hit_top: bool
+		// NOTE: should we test against pad prev pos too ?
+		if ball.prev_position.y + BALL_RADIUS < pad_pos.y {
+			fmt.printf("1 prev %v now %v pad y %v\n", ball.prev_position, ball.position, pad_pos.y)
+			ball.velocity.y = -ball.velocity.y
+			ball.position.y = pad_pos.y - BALL_RADIUS
+			hit_top = true
+		}
 
-			// left/right side reflects ball to the corresponding side
-			// middle area reflects straight up
+		// if ball.prev_position.y + BALL_RADIUS > pad_pos.y { 	// from below, should not really happen
+		// 	ball.velocity.y = -ball.velocity.y
+		// 	ball.position.y = pad_pos.y + BALL_RADIUS + PAD_HEIGHT
+		// 	fmt.printf("2 prev %v now %v pad y %v\n", ball.prev_position, ball.position, pad_pos.y)
+		// }
+
+		if ball.prev_position.x + BALL_RADIUS > pad_pos.x + PAD_WIDTH {
+			ball.velocity.x = -ball.velocity.x
+		}
+
+		if ball.prev_position.x - BALL_RADIUS < pad_pos.x {
+			ball.velocity.x = -ball.velocity.x
+		}
+
+		// left/right side reflects ball to the corresponding side
+		// middle area reflects straight up
+
+		if hit_top {
 			pad_center := pad.position.x + (PAD_WIDTH / 2)
 
 			hit_pos := clamp((ball.position.x - pad_center) / (PAD_WIDTH / 2), -1, 1)
@@ -339,9 +360,9 @@ pad_collide :: proc(ball: ^Movable, pad_pos: rl.Vector2) -> bool {
 			}
 			ball.velocity.x = BALL_SPEED * math.sin(angle)
 			ball.velocity.y = BALL_SPEED * -math.cos(abs(angle))
-
-
 		}
+
+		// }
 		collided = true
 		// alternative, reflect the vector. Though we may get pure horizontal or vertical movement
 		// velocity^ = linalg.reflect(velocity^, coll.normal)
@@ -524,7 +545,7 @@ game_update :: proc(dt: f32, state: State) -> bool {
 			rl.PlaySound(sound_destroy)
 
 		}
-		collided := pad_collide(&ball, pad.position.x)
+		collided := pad_collide(&ball, pad.position)
 		if collided || .Bounced in event {
 			rl.SetSoundPitch(sound_bounce, rand.float32_range(0.8, 1.2))
 			rl.PlaySound(sound_bounce)
@@ -631,7 +652,7 @@ main :: proc() {
 			}
 		case .GameOver:
 			if rl.IsKeyPressed(.SPACE) {
-				switch_to_new_game()
+				switch_to_new_game(START_LEVEL)
 			}
 			game_update(dt, state)
 
