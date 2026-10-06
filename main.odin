@@ -237,7 +237,7 @@ move_pad :: proc(dt: f32) {
 	}
 
 	new_pos_x := pad.position.x + direction * dt * pad.velocity.x
-	ball.position.x = math.clamp(new_pos_x, WALL_WIDTH, SCREEN_WIDTH - PAD_WIDTH - WALL_WIDTH)
+	pad.position.x = math.clamp(new_pos_x, WALL_WIDTH, SCREEN_WIDTH - PAD_WIDTH - WALL_WIDTH)
 }
 
 draw_pad :: proc(pos: rl.Vector2) {
@@ -304,10 +304,10 @@ draw_lives :: proc() {
 }
 
 center_pad :: proc() {
-	ball.position.x = (SCREEN_WIDTH - PAD_WIDTH) / 2.0
-	ball.position.y = PAD_Y_POS
-	ball.velocity.x = BAR_SPEED
-	ball.velocity.y = 0
+	pad.position.x = (SCREEN_WIDTH - PAD_WIDTH) / 2.0
+	pad.position.y = PAD_Y_POS
+	pad.velocity.x = BAR_SPEED
+	pad.velocity.y = 0
 }
 
 ball_area :: proc() -> rl.Rectangle {
@@ -349,13 +349,7 @@ pad_collide :: proc(ball: ^Movable, pad_pos: rl.Vector2) -> bool {
 	return collided
 }
 
-reflect :: proc(dir, normal: rl.Vector2) -> rl.Vector2 {
-	new_direction := linalg.reflect(dir, linalg.normalize(normal))
-	return linalg.normalize(new_direction)
-}
-
-
-ball_collide :: proc(ball: ^Movable) -> BallEvent {
+tile_collide :: proc(ball: ^Movable) -> BallEvent {
 
 	// left wall
 	if ball.position.x - BALL_RADIUS <= WALL_WIDTH {
@@ -521,7 +515,7 @@ game_update :: proc(dt: f32, state: State) -> bool {
 	ball.prev_position = ball.position
 	ball.position = ball.position + ball.velocity * dt
 	if state == .Playing {
-		event := ball_collide(&ball)
+		event := tile_collide(&ball)
 		killed = .Killed in event
 		tile_destoyed := .TileDestroyed in event
 		if tile_destoyed {
@@ -550,7 +544,7 @@ game_draw :: proc() {
 	draw_tiles()
 	draw_ball(ball.position)
 	draw_particles()
-	draw_pad(pad.position.x)
+	draw_pad(pad.position)
 	draw_screen_text(screen_text)
 	draw_score()
 	draw_lives()
@@ -592,12 +586,12 @@ main :: proc() {
 	rl.SetTargetFPS(monitorFPS)
 	fmt.println("Using FPS=", monitorFPS)
 	screen_text.font_size = FONT_SIZE
-	switch_to_new_game()
+	switch_to_new_game(START_LEVEL)
 	// note, we should handle large dt better, we can tunnel through things for large dt
 	for !rl.WindowShouldClose() {
 		dt := rl.GetFrameTime()
 		if rl.IsKeyPressed(.R) {
-			switch_to_starting(current_level.Level_number)
+			switch_to_new_game(current_level.Level_number)
 		}
 		switch state {
 		case .Starting:
@@ -690,9 +684,9 @@ handle_killed :: proc() {
 	}
 }
 
-switch_to_new_game :: proc() {
+switch_to_new_game :: proc(level_number: u8) {
 	lives = 5
-	switch_to_starting(START_LEVEL)
+	switch_to_starting(level_number)
 }
 
 switch_to_starting :: proc(level_number: u8) {
