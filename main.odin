@@ -64,7 +64,7 @@ Particle :: struct {
 	color:    rl.Color,
 	life:     f32,
 	lifetime: f32,
-	size:     f32, // Side for Square, radius circle
+	size:     f32, // Side/2 for Square, radius for circle
 	type:     ParticleType,
 }
 
@@ -478,7 +478,8 @@ rect_closest_point :: proc(p: rl.Vector2, rect: rl.Rectangle) -> rl.Vector2 {
 
 circle_rect_collide2 :: proc(circle_pos: rl.Vector2, circle_radius: f32, rect: rl.Rectangle) -> bool {
 	offset := rect_closest_point(circle_pos, rect) - circle_pos // from cicle center to rect
-	return linalg.dot(offset, offset) < circle_radius * circle_radius
+
+	return offset.x * offset.y + offset.x * offset.y < circle_radius * circle_radius
 }
 
 pad: Movable
@@ -567,7 +568,7 @@ main :: proc() {
 	init_sound()
 	defer rl.CloseWindow()
 	monitorFPS := rl.GetMonitorRefreshRate(rl.GetCurrentMonitor())
-	monitorFPS = max(30, monitorFPS)
+	monitorFPS = max(24, monitorFPS)
 	rl.SetTargetFPS(monitorFPS)
 	fmt.println("Using FPS=", monitorFPS)
 	screen_text.font_size = FONT_SIZE
