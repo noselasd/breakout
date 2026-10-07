@@ -53,6 +53,9 @@ GRID_X_START :: (SCREEN_WIDTH - GRID_WIDTH) / 2
 START_LEVEL :: 3
 FONT_SIZE :: 64
 
+// cap simulation at 0.0416 sec
+MIN_FPS :: 1.0 / 24.0
+
 ParticleType :: enum {
 	Square,
 	Circle,
@@ -576,6 +579,7 @@ main :: proc() {
 	// note, we should handle large dt better, we can tunnel through things for large dt
 	for !rl.WindowShouldClose() {
 		dt := rl.GetFrameTime()
+		dt = max(dt, MIN_FPS)
 		if rl.IsKeyPressed(.R) {
 			switch_to_new_game(current_level.Level_number)
 		}
