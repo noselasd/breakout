@@ -50,7 +50,7 @@ BALL_TEX_MAP :: rl.Rectangle{160, 200, BALL_RADIUS * 2, BALL_RADIUS * 2}
 GRID_WIDTH :: TILE_WIDTH * TILE_COLS + (TILE_COLS - 1) * TILE_SPACING
 GRID_X_START :: (SCREEN_WIDTH - GRID_WIDTH) / 2
 // 0 indexed. The displayed level is +1
-START_LEVEL :: 1
+START_LEVEL :: 3
 FONT_SIZE :: 64
 
 ParticleType :: enum {
@@ -333,7 +333,6 @@ pad_collide :: proc(ball: ^Movable, pad_pos: rl.Vector2) -> bool {
 		if coll_time > 0 { 	// 0 = inside at previous pos...
 			if normal.y < 0 {
 				pad_center := pad.position.x + (PAD_WIDTH / 2)
-
 				hit_pos := clamp((ball.position.x - pad_center) / (PAD_WIDTH / 2), -1, 1)
 				angle: f32 = --- // relative to Y axis.
 				if abs(hit_pos) < BALL_RADIUS / (PAD_WIDTH / 2.0) {
@@ -343,12 +342,13 @@ pad_collide :: proc(ball: ^Movable, pad_pos: rl.Vector2) -> bool {
 				}
 				ball.velocity.x = BALL_SPEED * math.sin(angle)
 				ball.velocity.y = BALL_SPEED * -math.cos(abs(angle))
+				ball.position.y = pad.position.y + BALL_RADIUS
 			}
 			if normal.x != 0 {
 				ball.velocity.x = -ball.velocity.x
 			}
-			collided = true
 		}
+		collided = true
 
 		// }
 		// alternative, reflect the vector. Though we may get pure horizontal or vertical movement
@@ -393,41 +393,37 @@ tile_collide :: proc(ball: ^Movable) -> BallEvent {
 		}
 		rect.x = tile.position.x
 		rect.y = tile.position.y
-		coll := circle_rect_collide(ball.position, BALL_RADIUS, rect)
-		if coll.side != .None {
-
-			if ball.prev_position.x > tile.position.x + TILE_WIDTH {
-				ball.velocity.x = -ball.velocity.x
-				ball.position.x = tile.position.x + TILE_WIDTH + BALL_RADIUS
+		coll := circle_rect_collide2(ball.position, BALL_RADIUS, rect)
+		if coll {
+			// left/right side reflects ball to the corresponding side
+			// middle area reflects straight up
+			coll_time, normal := circle_rect_collision_time(ball.position, BALL_RADIUS, ball.prev_position, rect)
+			if coll_time <= 0 {
+				fmt.printf("wht the heck")
 			}
-			if ball.prev_position.x < tile.position.x {
-				ball.velocity.x = -ball.velocity.x
-				ball.position.x = tile.position.x - BALL_RADIUS
-			}
-
-			if ball.prev_position.y > tile.position.y + TILE_HEIGHT {
-				ball.velocity.y = -ball.velocity.y
-				ball.position.y = tile.position.y + TILE_HEIGHT + BALL_RADIUS
-
-			}
-			if ball.prev_position.y < tile.position.y {
-				ball.velocity.y = -ball.velocity.y
-				ball.position.y = tile.position.y - BALL_RADIUS
-			}
-
-			if !tile.unbreakable {
-				tile.lives -= 1
-				area := rl.Rectangle{tile.position.x, tile.position.y, TILE_WIDTH, TILE_HEIGHT}
-				if tile.lives == 0 {
-					particle_erupt(area, tile.color, 12, 1, 6, .Square, .6)
-					return {.TileDestroyed}
-				} else {
-					particle_erupt(area, tile.color, 6, 1, 4, .Square, .3)
-					return {.Bounced}
-
+			if coll_time > 0 { 	// 0 = inside at previous pos...
+				ball.position = ball.prev_position + coll_time * (ball.position - ball.prev_position)
+				if normal.x != 0 {
+					ball.velocity.x = -ball.velocity.x
 				}
-			} else {
-				return {.Bounced}
+				if normal.y != 0 {
+					ball.velocity.y = -ball.velocity.y
+				}
+
+				if !tile.unbreakable {
+					tile.lives -= 1
+					area := rl.Rectangle{tile.position.x, tile.position.y, TILE_WIDTH, TILE_HEIGHT}
+					if tile.lives == 0 {
+						particle_erupt(area, tile.color, 12, 1, 6, .Square, .6)
+						return {.TileDestroyed}
+					} else {
+						particle_erupt(area, tile.color, 6, 1, 4, .Square, .3)
+						return {.Bounced}
+
+					}
+				} else {
+					return {.Bounced}
+				}
 			}
 		}
 	}
@@ -521,6 +517,9 @@ circle_rect_collision_time :: proc(
 	// if normal.y {
 	// 	velocity.y = -velocity.y
 	// }
+	if time_at_enter <= 0 {
+		fmt.printf("what the heck")
+	}
 	return time_at_enter, normal
 }
 
@@ -537,7 +536,7 @@ circle_rect_collide2 :: proc(circle_pos: rl.Vector2, circle_radius: f32, rect: r
 }
 
 
-circle_rect_collide2 :: proc(circle_pos: rl.Vector2, circle_radius: f32, rect: rl.Rectangle) -> CollisionResult {
+circle_rect_collide :: proc(circle_pos: rl.Vector2, circle_radius: f32, rect: rl.Rectangle) -> CollisionResult {
 	result: CollisionResult
 
 	closest_point: rl.Vector2 = ---
