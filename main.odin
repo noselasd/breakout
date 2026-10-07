@@ -325,50 +325,32 @@ pad_collide :: proc(ball: ^Movable, pad_pos: rl.Vector2) -> bool {
 	// if the ball ends up inside the pad...
 	collided := false
 	pad_rect := rl.Rectangle{pad.position.x, pad.position.y, PAD_WIDTH, TILE_HEIGHT}
-	coll := circle_rect_collide(ball.position, BALL_RADIUS, pad_rect)
-	if coll.side != .None {
-		hit_top: bool
-		// NOTE: should we test against pad prev pos too ?
-		if ball.prev_position.y + BALL_RADIUS < pad_pos.y {
-			fmt.printf("1 prev %v now %v pad y %v\n", ball.prev_position, ball.position, pad_pos.y)
-			ball.velocity.y = -ball.velocity.y
-			ball.position.y = pad_pos.y - BALL_RADIUS
-			hit_top = true
-		}
-
-		// if ball.prev_position.y + BALL_RADIUS > pad_pos.y { 	// from below, should not really happen
-		// 	ball.velocity.y = -ball.velocity.y
-		// 	ball.position.y = pad_pos.y + BALL_RADIUS + PAD_HEIGHT
-		// 	fmt.printf("2 prev %v now %v pad y %v\n", ball.prev_position, ball.position, pad_pos.y)
-		// }
-
-		if ball.prev_position.x + BALL_RADIUS > pad_pos.x + PAD_WIDTH {
-			ball.velocity.x = -ball.velocity.x
-		}
-
-		if ball.prev_position.x - BALL_RADIUS < pad_pos.x {
-			ball.velocity.x = -ball.velocity.x
-		}
-
+	coll := circle_rect_collide2(ball.position, BALL_RADIUS, pad_rect)
+	if coll {
 		// left/right side reflects ball to the corresponding side
 		// middle area reflects straight up
+		coll_time, normal := circle_rect_collision_time(ball.position, BALL_RADIUS, ball.prev_position, pad_rect)
+		if coll_time > 0 { 	// 0 = inside at previous pos...
+			if normal.y < 0 {
+				pad_center := pad.position.x + (PAD_WIDTH / 2)
 
-		if hit_top {
-			pad_center := pad.position.x + (PAD_WIDTH / 2)
-
-			hit_pos := clamp((ball.position.x - pad_center) / (PAD_WIDTH / 2), -1, 1)
-			angle: f32 = --- // relative to Y axis.
-			if abs(hit_pos) < BALL_RADIUS / (PAD_WIDTH / 2.0) {
-				angle = 0
-			} else {
-				angle = hit_pos * (60 * rl.DEG2RAD)
+				hit_pos := clamp((ball.position.x - pad_center) / (PAD_WIDTH / 2), -1, 1)
+				angle: f32 = --- // relative to Y axis.
+				if abs(hit_pos) < BALL_RADIUS / (PAD_WIDTH / 2.0) {
+					angle = 0
+				} else {
+					angle = hit_pos * (60 * rl.DEG2RAD)
+				}
+				ball.velocity.x = BALL_SPEED * math.sin(angle)
+				ball.velocity.y = BALL_SPEED * -math.cos(abs(angle))
 			}
-			ball.velocity.x = BALL_SPEED * math.sin(angle)
-			ball.velocity.y = BALL_SPEED * -math.cos(abs(angle))
+			if normal.x != 0 {
+				ball.velocity.x = -ball.velocity.x
+			}
+			collided = true
 		}
 
 		// }
-		collided = true
 		// alternative, reflect the vector. Though we may get pure horizontal or vertical movement
 		// velocity^ = linalg.reflect(velocity^, coll.normal)
 	}
@@ -555,7 +537,7 @@ circle_rect_collide2 :: proc(circle_pos: rl.Vector2, circle_radius: f32, rect: r
 }
 
 
-circle_rect_collide :: proc(circle_pos: rl.Vector2, circle_radius: f32, rect: rl.Rectangle) -> CollisionResult {
+circle_rect_collide2 :: proc(circle_pos: rl.Vector2, circle_radius: f32, rect: rl.Rectangle) -> CollisionResult {
 	result: CollisionResult
 
 	closest_point: rl.Vector2 = ---
