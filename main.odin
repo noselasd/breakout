@@ -154,17 +154,11 @@ particles_update :: proc(dt: f32) {
 				continue
 			}
 			tile_rect := rl.Rectangle{tile.position.x, tile.position.y, TILE_WIDTH, TILE_HEIGHT}
-			coll := circle_rect_collide2(part.position, part.size, tile_rect)
-			if coll {
-				coll_time, normal := circle_rect_collision_time(part.position, part.size, prev_pos, tile_rect)
-				if coll_time > 0 { 	// 0 = inside at previous pos...
-					part.position = prev_pos + coll_time * (part.position - prev_pos)
-					if normal.x != 0 {
-						part.velocity.x = -part.velocity.x
-					}
-					if normal.y != 0 {
-						part.velocity.y = -part.velocity.y
-					}
+			hit, t, normal := circle_rect_collision_time(prev_pos, part.position, part.size, tile_rect)
+			if hit {
+				if t > 0 { 	// 0 = inside at previous pos...
+					part.position = prev_pos + t * (part.position - prev_pos)
+					part.velocity = linalg.reflect(part.velocity, normal)
 				}
 				if rl.Vector2LengthSqr(part.velocity) <= 1 { 	// kill jitter
 					part.velocity = {0, 0}
@@ -320,41 +314,62 @@ ball_area :: proc() -> rl.Rectangle {
 	return rl.Rectangle{ball.position.x - BALL_RADIUS, ball.position.y - BALL_RADIUS, BALL_RADIUS * 2, BALL_RADIUS * 2}
 }
 
-pad_collide :: proc(ball: ^Movable, pad_pos: rl.Vector2) -> bool {
-	// Note - our collision is a bit more complicated than it should be, and it doesn't properly handle
-	// if the ball ends up inside the pad...
-	collided := false
-	pad_rect := rl.Rectangle{pad.position.x, pad.position.y, PAD_WIDTH, TILE_HEIGHT}
-	coll := circle_rect_collide2(ball.position, BALL_RADIUS, pad_rect)
-	if coll {
-		// left/right side reflects ball to the corresponding side
-		// middle area reflects straight up
-		coll_time, normal := circle_rect_collision_time(ball.position, BALL_RADIUS, ball.prev_position, pad_rect)
-		if coll_time > 0 { 	// 0 = inside at previous pos...
-			if normal.y < 0 {
-				pad_center := pad.position.x + (PAD_WIDTH / 2)
-				hit_pos := clamp((ball.position.x - pad_center) / (PAD_WIDTH / 2), -1, 1)
-				angle: f32 = --- // relative to Y axis.
-				if abs(hit_pos) < BALL_RADIUS / (PAD_WIDTH / 2.0) {
-					angle = 0
-				} else {
-					angle = hit_pos * (60 * rl.DEG2RAD)
-				}
-				ball.velocity.x = BALL_SPEED * math.sin(angle)
-				ball.velocity.y = BALL_SPEED * -math.cos(abs(angle))
-				ball.position.y = pad.position.y + BALL_RADIUS
-			}
-			if normal.x != 0 {
-				ball.velocity.x = -ball.velocity.x
-			}
-		}
-		collided = true
-
-		// }
-		// alternative, reflect the vector. Though we may get pure horizontal or vertical movement
-		// velocity^ = linalg.reflect(velocity^, coll.normal)
+pad_collide :: proc(ball: ^Movable, pad: ^Movable) -> bool {
+	pad_rect := rl.Rectangle{pad.position.x, pad.position.y, PAD_WIDTH, PAD_HEIGHT}
+	// The pad moves too, so sweep in the pad's frame of reference: where the ball
+	// was relative to the pad at the previous frame, placed against the current pad.
+	prev := pad.position + (ball.prev_position - pad.prev_position)
+	hit, t, normal := circle_rect_collision_time(prev, ball.position, BALL_RADIUS, pad_rect)
+	if !hit {
+		return false
 	}
-	return collided
+	move := ball.position - prev // relative to the pad
+	contact := prev + t * move
+	if t == 0 {
+		// Overlapping, or just touching, at the previous frame, e.g. the pad keeps pushing
+		// into the ball. Push the ball out the side it was at.
+		closest := rect_closest_point(prev, pad_rect)
+		push := prev - closest
+		if push == {} {
+			// center inside the pad, pop it out on top
+			push = {0, -1}
+			closest = {prev.x, pad.position.y}
+		}
+		normal = linalg.normalize(push)
+		contact = closest + normal * BALL_RADIUS
+	}
+	if linalg.dot(move, normal) >= 0 {
+		// already moving out
+		return false
+	}
+
+	if linalg.dot(ball.velocity, normal) >= 0 {
+		// Already moving away, the pad is just faster and pushes the ball along.
+		// Keep the rest of the movement along the pad surface, so the ball can slide off it.
+		rest := (1 - t) * move
+		ball.position = contact + (rest - linalg.dot(rest, normal) * normal)
+		return false
+	}
+	ball.position = contact
+
+	if normal.y < 0 {
+		// top or top corners. Left/right side reflects ball to the corresponding side
+		// middle area reflects straight up
+		pad_center := pad.position.x + (PAD_WIDTH / 2)
+		hit_pos := clamp((ball.position.x - pad_center) / (PAD_WIDTH / 2), -1, 1)
+		angle: f32 = --- // relative to Y axis.
+		if abs(hit_pos) < BALL_RADIUS / (PAD_WIDTH / 2.0) {
+			angle = 0
+		} else {
+			angle = hit_pos * (60 * rl.DEG2RAD)
+		}
+		ball.velocity.x = BALL_SPEED * math.sin(angle)
+		ball.velocity.y = BALL_SPEED * -math.cos(abs(angle))
+	} else {
+		// sides or bottom corners, send the ball away from the pad
+		ball.velocity.x = math.sign(normal.x) * abs(ball.velocity.x)
+	}
+	return true
 }
 
 tile_collide :: proc(ball: ^Movable) -> BallEvent {
@@ -381,11 +396,14 @@ tile_collide :: proc(ball: ^Movable) -> BallEvent {
 
 	//bottom
 	if ball.position.y + BALL_RADIUS >= SCREEN_HEIGHT {
-		ball.position.y = -ball.velocity.y
-		ball.position.y = SCREEN_HEIGHT
+		ball.position.y = SCREEN_HEIGHT + BALL_RADIUS
 		return {.Killed}
 	}
 
+	// The sweep can pass several tiles in one frame, the first one hit wins.
+	first_tile: ^Tile
+	first_t: f32 = 2
+	first_normal: rl.Vector2
 	rect := rl.Rectangle{0, 0, TILE_WIDTH, TILE_HEIGHT}
 	for &tile in tiles {
 		if tile.lives == 0 {
@@ -393,41 +411,33 @@ tile_collide :: proc(ball: ^Movable) -> BallEvent {
 		}
 		rect.x = tile.position.x
 		rect.y = tile.position.y
-		coll := circle_rect_collide2(ball.position, BALL_RADIUS, rect)
-		if coll {
-			// left/right side reflects ball to the corresponding side
-			// middle area reflects straight up
-			coll_time, normal := circle_rect_collision_time(ball.position, BALL_RADIUS, ball.prev_position, rect)
-			if coll_time <= 0 {
-				fmt.printf("wht the heck")
-			}
-			if coll_time > 0 { 	// 0 = inside at previous pos...
-				ball.position = ball.prev_position + coll_time * (ball.position - ball.prev_position)
-				if normal.x != 0 {
-					ball.velocity.x = -ball.velocity.x
-				}
-				if normal.y != 0 {
-					ball.velocity.y = -ball.velocity.y
-				}
-
-				if !tile.unbreakable {
-					tile.lives -= 1
-					area := rl.Rectangle{tile.position.x, tile.position.y, TILE_WIDTH, TILE_HEIGHT}
-					if tile.lives == 0 {
-						particle_erupt(area, tile.color, 12, 1, 6, .Square, .6)
-						return {.TileDestroyed}
-					} else {
-						particle_erupt(area, tile.color, 6, 1, 4, .Square, .3)
-						return {.Bounced}
-
-					}
-				} else {
-					return {.Bounced}
-				}
-			}
+		hit, t, normal := circle_rect_collision_time(ball.prev_position, ball.position, BALL_RADIUS, rect)
+		if hit && t > 0 && t < first_t { 	// 0 = inside at previous pos...
+			first_tile = &tile
+			first_t = t
+			first_normal = normal
 		}
 	}
-	return {}
+	if first_tile == nil {
+		return {}
+	}
+
+	tile := first_tile
+	ball.position = ball.prev_position + first_t * (ball.position - ball.prev_position)
+	ball.velocity = linalg.reflect(ball.velocity, first_normal)
+
+	if !tile.unbreakable {
+		tile.lives -= 1
+		area := rl.Rectangle{tile.position.x, tile.position.y, TILE_WIDTH, TILE_HEIGHT}
+		if tile.lives == 0 {
+			particle_erupt(area, tile.color, 12, 1, 6, .Square, .6)
+			return {.TileDestroyed}
+		} else {
+			particle_erupt(area, tile.color, 6, 1, 4, .Square, .3)
+			return {.Bounced}
+		}
+	}
+	return {.Bounced}
 }
 
 RectSide :: enum {
@@ -438,158 +448,84 @@ RectSide :: enum {
 	Right,
 }
 
-CollisionResult :: struct {
-	normal:  rl.Vector2,
-	overlap: f32,
-	side:    RectSide,
-}
 
+// Swept circle vs rect. The circle center moving prev -> pos is treated as a ray against
+// the rect expanded by the radius, with rounded corners (the Minkowski sum).
+// Returns time of impact in [0,1] and the outward surface normal at the impact point.
+// hit with t == 0 and a zero normal means the circle already overlapped at prev.
 circle_rect_collision_time :: proc(
-	circle_pos: rl.Vector2,
-	circle_radius: f32,
-	circle_prev_pos: rl.Vector2,
+	prev, pos: rl.Vector2,
+	radius: f32,
 	rect: rl.Rectangle,
 ) -> (
-	f32,
-	rl.Vector2,
+	hit: bool,
+	t: f32,
+	normal: rl.Vector2,
 ) {
+	delta := pos - prev
+	min_p := rl.Vector2{rect.x - radius, rect.y - radius}
+	max_p := rl.Vector2{rect.x + rect.width + radius, rect.y + rect.height + radius}
 
-	// 0 is start time of previous pos
-	time_at_enter: f32 = 0.0
-	normal: rl.Vector2
-
-	// calculate rectangle points expaned by the circle radius.
-	// // Note(nos): We don't handle corners as rounded..
-	rect_min_x := rect.x - circle_radius
-	rect_max_x := rect.x + rect.width + circle_radius
-
-	rect_min_y := rect.y - circle_radius
-	rect_max_y := rect.y + rect.height + circle_radius
-
-	// movement:
-	circle_delta := circle_pos - circle_prev_pos
-
-	if circle_prev_pos.x < rect_min_x { 	// left
-		// when the center reached the expanded edge.
-		t := (rect_min_x - circle_prev_pos.x) / circle_delta.x
-		// happene later than other crossings ?
-		if t > time_at_enter {
-			time_at_enter = t
-			normal = rl.Vector2{-1, 0}
+	// Slab test against the square cornered expanded rect.
+	t_enter: f32 = 0
+	t_exit: f32 = 1
+	for axis in 0 ..< 2 {
+		if delta[axis] == 0 {
+			if prev[axis] < min_p[axis] || prev[axis] > max_p[axis] {
+				return
+			}
+			continue
 		}
-	} else if circle_prev_pos.x > rect_max_x { 	// right
-		t := (rect_max_x - circle_prev_pos.x) / circle_delta.x
-		if t > time_at_enter {
-			time_at_enter = t
-			normal = rl.Vector2{1, 0}
+		t0 := (min_p[axis] - prev[axis]) / delta[axis]
+		t1 := (max_p[axis] - prev[axis]) / delta[axis]
+		if t0 > t1 {
+			t0, t1 = t1, t0
+		}
+		t_enter = max(t_enter, t0)
+		t_exit = min(t_exit, t1)
+		if t_enter > t_exit {
+			return
 		}
 	}
 
-	if circle_prev_pos.y < rect_min_y { 	// top
-		t := (rect_min_y - circle_prev_pos.y) / circle_delta.y
-		if t > time_at_enter {
-			time_at_enter = t
-			normal = rl.Vector2{0, -1}
+	t = t_enter
+	p := prev + delta * t
+	closest := rect_closest_point(p, rect)
+	if p.x != closest.x && p.y != closest.y {
+		// Entered in a corner square. The real shape there is a quarter circle
+		// around the rect corner, so redo the test against that circle.
+		m := prev - closest
+		a := linalg.dot(delta, delta)
+		b := linalg.dot(m, delta)
+		c := linalg.dot(m, m) - radius * radius
+		if c <= 0 {
+			// already inside the corner circle
+			return true, 0, {}
 		}
-	} else if circle_prev_pos.y > rect_max_y { 	//bpttom
-		t := (rect_max_y - circle_prev_pos.y) / circle_delta.y
-		if t > time_at_enter {
-			time_at_enter = t
-			normal = rl.Vector2{0, 1}
+		disc := b * b - a * c
+		if b >= 0 || disc < 0 {
+			// moving away from, or missing, the corner
+			return
 		}
+		t = (-b - math.sqrt(disc)) / a
+		if t > 1 {
+			return
+		}
+		p = prev + delta * t
+	} else if t == 0 {
+		// overlapping at prev
+		return true, 0, {}
 	}
+	return true, t, (p - closest) / radius
+}
 
-	// Reject the result if the impact is not between previous and current.
-	// This should not happen if we already guaranteed that we got a collision,
-	// but floating point rounding errrors could mess this up.
-	// if (tEnter < 0.0f || tEnter > 1.0f)
-	//    return false;
-
-	// Move the circle back to the exact center position where impact occurred.
-	// current = previous + delta * tEnter;
-
-	// Bounce horizontally if we hit a vertical rectangle side.
-	// if normal.x {
-	// 	velocity.x = -velocity.x
-	// }
-
-	// Bounce vertically if we hit a horizontal rectangle side.
-	// if normal.y {
-	// 	velocity.y = -velocity.y
-	// }
-	if time_at_enter <= 0 {
-		fmt.printf("what the heck")
-	}
-	return time_at_enter, normal
+rect_closest_point :: proc(p: rl.Vector2, rect: rl.Rectangle) -> rl.Vector2 {
+	return {math.clamp(p.x, rect.x, rect.x + rect.width), math.clamp(p.y, rect.y, rect.y + rect.height)}
 }
 
 circle_rect_collide2 :: proc(circle_pos: rl.Vector2, circle_radius: f32, rect: rl.Rectangle) -> bool {
-
-	closest_point: rl.Vector2 = ---
-	closest_point.x = math.clamp(circle_pos.x, rect.x, rect.x + rect.width)
-	closest_point.y = math.clamp(circle_pos.y, rect.y, rect.y + rect.height)
-
-	offset := closest_point - circle_pos // from cicle center to rect
-	distance_squared := (offset.x * offset.x) + (offset.y * offset.y)
-
-	return distance_squared < circle_radius * circle_radius
-}
-
-
-circle_rect_collide :: proc(circle_pos: rl.Vector2, circle_radius: f32, rect: rl.Rectangle) -> CollisionResult {
-	result: CollisionResult
-
-	closest_point: rl.Vector2 = ---
-	closest_point.x = math.clamp(circle_pos.x, rect.x, rect.x + rect.width)
-	closest_point.y = math.clamp(circle_pos.y, rect.y, rect.y + rect.height)
-
-	collision: rl.Vector2 = closest_point - circle_pos
-	dist_squared := collision.x * collision.x + collision.y * collision.y
-	if dist_squared >= circle_radius * circle_radius {
-		// no overlap
-		return result
-	}
-
-	distance := rl.Vector2Length(collision)
-	result.overlap = distance - circle_radius
-	if dist_squared == 0.0 {
-		// Circle center is inside the rect. Use axis-minimum (SAT) to find the
-		// nearest face and push the circle out that way, rather than returning
-		// an arbitrary normal.
-		dx_left := circle_pos.x - rect.x
-		dx_right := (rect.x + rect.width) - circle_pos.x
-		dy_top := circle_pos.y - rect.y
-		dy_bottom := (rect.y + rect.height) - circle_pos.y
-
-		min_d := min(dx_left, dx_right, dy_top, dy_bottom)
-		if min_d == dx_left {
-			result.normal = {1, 0}
-			result.overlap = -(dx_left + circle_radius)
-			result.side = .Left
-		} else if min_d == dx_right {
-			result.normal = {-1, 0}
-			result.overlap = -(dx_right + circle_radius)
-			result.side = .Right
-		} else if min_d == dy_top {
-			result.normal = {0, 1}
-			result.overlap = -(dy_top + circle_radius)
-			result.side = .Top
-		} else {
-			result.normal = {0, -1}
-			result.overlap = -(dy_bottom + circle_radius)
-			result.side = .Bottom
-		}
-		return result
-	}
-	normal := collision * (1 / distance)
-
-	side_x: RectSide = .Right if normal.x < 0.0 else .Left
-	side_y: RectSide = .Bottom if normal.y < 0.0 else .Top
-
-	result.side = side_x if abs(normal.x) > abs(normal.y) else side_y
-	result.normal = normal
-
-	return result
+	offset := rect_closest_point(circle_pos, rect) - circle_pos // from cicle center to rect
+	return linalg.dot(offset, offset) < circle_radius * circle_radius
 }
 
 pad: Movable
@@ -620,7 +556,7 @@ game_update :: proc(dt: f32, state: State) -> bool {
 			rl.PlaySound(sound_destroy)
 
 		}
-		collided := pad_collide(&ball, pad.position)
+		collided := pad_collide(&ball, &pad)
 		if collided || .Bounced in event {
 			rl.SetSoundPitch(sound_bounce, rand.float32_range(0.8, 1.2))
 			rl.PlaySound(sound_bounce)
