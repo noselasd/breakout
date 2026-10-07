@@ -50,7 +50,7 @@ BALL_TEX_MAP :: rl.Rectangle{160, 200, BALL_RADIUS * 2, BALL_RADIUS * 2}
 GRID_WIDTH :: TILE_WIDTH * TILE_COLS + (TILE_COLS - 1) * TILE_SPACING
 GRID_X_START :: (SCREEN_WIDTH - GRID_WIDTH) / 2
 // 0 indexed. The displayed level is +1
-START_LEVEL :: 0
+START_LEVEL :: 1
 FONT_SIZE :: 64
 
 ParticleType :: enum {
@@ -145,6 +145,7 @@ particles_update :: proc(dt: f32) {
 		part.life = max(part.life - dt, 0)
 		normalized_life := part.life / part.lifetime
 		part.color.a = u8(math.round(255 * normalized_life))
+		prev_pos := part.position
 		part.position += dt * part.velocity
 		part.velocity.y += dt * PARTICLE_SPEED
 
@@ -152,15 +153,19 @@ particles_update :: proc(dt: f32) {
 			if tile.lives == 0 {
 				continue
 			}
-			coll := circle_rect_collide(
-				part.position,
-				part.size,
-				rl.Rectangle{tile.position.x, tile.position.y, TILE_WIDTH, TILE_HEIGHT},
-			)
-			if coll.side != .None {
-				part.position += coll.normal * coll.overlap // push back particle
-				part.velocity = linalg.reflect(part.velocity, coll.normal)
-				part.velocity *= .5
+			tile_rect := rl.Rectangle{tile.position.x, tile.position.y, TILE_WIDTH, TILE_HEIGHT}
+			coll := circle_rect_collide2(part.position, part.size, tile_rect)
+			if coll {
+				coll_time, normal := circle_rect_collision_time(part.position, part.size, prev_pos, tile_rect)
+				if coll_time > 0 { 	// 0 = inside at previous pos...
+					part.position = prev_pos + coll_time * (part.position - prev_pos)
+					if normal.x != 0 {
+						part.velocity.x = -part.velocity.x
+					}
+					if normal.y != 0 {
+						part.velocity.y = -part.velocity.y
+					}
+				}
 				if rl.Vector2LengthSqr(part.velocity) <= 1 { 	// kill jitter
 					part.velocity = {0, 0}
 				}
@@ -466,7 +471,10 @@ circle_rect_collision_time :: proc(
 	circle_radius: f32,
 	circle_prev_pos: rl.Vector2,
 	rect: rl.Rectangle,
-) -> f32 {
+) -> (
+	f32,
+	rl.Vector2,
+) {
 
 	// 0 is start time of previous pos
 	time_at_enter: f32 = 0.0
@@ -531,7 +539,7 @@ circle_rect_collision_time :: proc(
 	// if normal.y {
 	// 	velocity.y = -velocity.y
 	// }
-	return time_at_enter
+	return time_at_enter, normal
 }
 
 circle_rect_collide2 :: proc(circle_pos: rl.Vector2, circle_radius: f32, rect: rl.Rectangle) -> bool {
