@@ -461,6 +461,92 @@ CollisionResult :: struct {
 	side:    RectSide,
 }
 
+circle_rect_collision_time :: proc(
+	circle_pos: rl.Vector2,
+	circle_radius: f32,
+	circle_prev_pos: rl.Vector2,
+	rect: rl.Rectangle,
+) -> f32 {
+
+	// 0 is start time of previous pos
+	time_at_enter: f32 = 0.0
+	normal: rl.Vector2
+
+	// calculate rectangle points expaned by the circle radius.
+	// // Note(nos): We don't handle corners as rounded..
+	rect_min_x := rect.x - circle_radius
+	rect_max_x := rect.x + rect.width + circle_radius
+
+	rect_min_y := rect.y - circle_radius
+	rect_max_y := rect.y + rect.height + circle_radius
+
+	// movement:
+	circle_delta := circle_pos - circle_prev_pos
+
+	if circle_prev_pos.x < rect_min_x { 	// left
+		// when the center reached the expanded edge.
+		t := (rect_min_x - circle_prev_pos.x) / circle_delta.x
+		// happene later than other crossings ?
+		if t > time_at_enter {
+			time_at_enter = t
+			normal = rl.Vector2{-1, 0}
+		}
+	} else if circle_prev_pos.x > rect_max_x { 	// right
+		t := (rect_max_x - circle_prev_pos.x) / circle_delta.x
+		if t > time_at_enter {
+			time_at_enter = t
+			normal = rl.Vector2{1, 0}
+		}
+	}
+
+	if circle_prev_pos.y < rect_min_y { 	// top
+		t := (rect_min_y - circle_prev_pos.y) / circle_delta.y
+		if t > time_at_enter {
+			time_at_enter = t
+			normal = rl.Vector2{0, -1}
+		}
+	} else if circle_prev_pos.y > rect_max_y { 	//bpttom
+		t := (rect_max_y - circle_prev_pos.y) / circle_delta.y
+		if t > time_at_enter {
+			time_at_enter = t
+			normal = rl.Vector2{0, 1}
+		}
+	}
+
+	// Reject the result if the impact is not between previous and current.
+	// This should not happen if we already guaranteed that we got a collision,
+	// but floating point rounding errrors could mess this up.
+	// if (tEnter < 0.0f || tEnter > 1.0f)
+	//    return false;
+
+	// Move the circle back to the exact center position where impact occurred.
+	// current = previous + delta * tEnter;
+
+	// Bounce horizontally if we hit a vertical rectangle side.
+	// if normal.x {
+	// 	velocity.x = -velocity.x
+	// }
+
+	// Bounce vertically if we hit a horizontal rectangle side.
+	// if normal.y {
+	// 	velocity.y = -velocity.y
+	// }
+	return time_at_enter
+}
+
+circle_rect_collide2 :: proc(circle_pos: rl.Vector2, circle_radius: f32, rect: rl.Rectangle) -> bool {
+
+	closest_point: rl.Vector2 = ---
+	closest_point.x = math.clamp(circle_pos.x, rect.x, rect.x + rect.width)
+	closest_point.y = math.clamp(circle_pos.y, rect.y, rect.y + rect.height)
+
+	offset := closest_point - circle_pos // from cicle center to rect
+	distance_squared := (offset.x * offset.x) + (offset.y * offset.y)
+
+	return distance_squared < circle_radius * circle_radius
+}
+
+
 circle_rect_collide :: proc(circle_pos: rl.Vector2, circle_radius: f32, rect: rl.Rectangle) -> CollisionResult {
 	result: CollisionResult
 
