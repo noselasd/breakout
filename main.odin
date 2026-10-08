@@ -322,7 +322,7 @@ pad_collide :: proc(ball: ^Movable, pad: ^Movable) -> bool {
 	// reference: where the ball was relative to the pad at the previous frame.
 	prev := pad.position + (ball.prev_position - pad.prev_position)
 	top := pad.position.y - BALL_RADIUS // ball center when touching the top
-	if ball.velocity.y <= 0 || prev.y > top || ball.position.y < top {
+	if ball.velocity.y <= 0 || prev.y > top || ball.position.y < top || ball.position.y <= prev.y {
 		return false
 	}
 	// where the ball crossed the top
