@@ -50,7 +50,7 @@ BALL_TEX_MAP :: rl.Rectangle{160, 200, BALL_RADIUS * 2, BALL_RADIUS * 2}
 GRID_WIDTH :: TILE_WIDTH * TILE_COLS + (TILE_COLS - 1) * TILE_SPACING
 GRID_X_START :: (SCREEN_WIDTH - GRID_WIDTH) / 2
 // 0 indexed. The displayed level is +1
-START_LEVEL :: 3
+START_LEVEL :: 2
 FONT_SIZE :: 64
 
 // cap simulation at 0.0416 sec
