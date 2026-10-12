@@ -52,6 +52,7 @@ GRID_X_START :: (SCREEN_WIDTH - GRID_WIDTH) / 2
 // 0 indexed. The displayed level is +1
 START_LEVEL :: 2
 FONT_SIZE :: 64
+FONT_SIZE_SMALL :: 36
 
 // cap simulation at 0.0416 sec
 MIN_FPS :: 1.0 / 24.0
@@ -87,7 +88,6 @@ ScreenTextSection :: enum {
 ScreenText :: struct {
 	text:          cstring,
 	sub_text:      cstring, // below text, smaller font
-	font_size:     i32,
 	text_width:    i32,
 	subtext_width: i32,
 	active:        bool,
@@ -269,8 +269,8 @@ set_screen_text :: proc(section: ScreenTextSection, text: cstring, sub_text: cst
 	screen_text.section = section
 	screen_text.text = text
 	screen_text.sub_text = sub_text
-	screen_text.text_width = rl.MeasureText(screen_text.text, screen_text.font_size)
-	screen_text.subtext_width = rl.MeasureText(screen_text.sub_text, (screen_text.font_size * 3) / 4)
+	screen_text.text_width = rl.MeasureText(screen_text.text, FONT_SIZE)
+	screen_text.subtext_width = rl.MeasureText(screen_text.sub_text, FONT_SIZE_SMALL)
 }
 
 draw_screen_text :: proc(text: ScreenText) {
@@ -288,11 +288,11 @@ draw_screen_text :: proc(text: ScreenText) {
 		section = (SCREEN_HEIGHT / 3) * 2
 	}
 	text_x := i32(SCREEN_WIDTH) / 2 - screen_text.text_width / 2
-	text_y := section - screen_text.font_size / 2
-	subtext_x := i32(SCREEN_WIDTH) / 2 - screen_text.subtext_width / 2
-	subtext_y := section - screen_text.font_size / 2 + FONT_SIZE + 2
-	rl.DrawText(screen_text.text, text_x, text_y, screen_text.font_size, rl.BLACK)
-	rl.DrawText(screen_text.sub_text, subtext_x, subtext_y, (screen_text.font_size * 3) / 4, rl.BLACK)
+	text_y := section - FONT_SIZE / 2
+	rl.DrawText(screen_text.text, text_x, text_y, FONT_SIZE, rl.BLACK)
+	text_x = i32(SCREEN_WIDTH) / 2 - screen_text.subtext_width / 2
+	text_y = section - FONT_SIZE / 2 + FONT_SIZE
+	rl.DrawText(screen_text.sub_text, text_x, text_y, FONT_SIZE_SMALL, rl.BLACK)
 
 }
 
@@ -582,7 +582,6 @@ main :: proc() {
 	monitorFPS = max(24, monitorFPS)
 	rl.SetTargetFPS(monitorFPS)
 	fmt.println("Using FPS=", monitorFPS)
-	screen_text.font_size = FONT_SIZE
 	switch_to_new_game(START_LEVEL)
 	// note, we should handle large dt better, we can tunnel through things for large dt
 	for !rl.WindowShouldClose() {
