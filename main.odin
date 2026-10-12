@@ -85,11 +85,13 @@ ScreenTextSection :: enum {
 	Bottom,
 }
 ScreenText :: struct {
-	text:       cstring,
-	font_size:  i32,
-	text_width: i32,
-	active:     bool,
-	section:    ScreenTextSection,
+	text:          cstring,
+	sub_text:      cstring, // below text, smaller font
+	font_size:     i32,
+	text_width:    i32,
+	subtext_width: i32,
+	active:        bool,
+	section:       ScreenTextSection,
 }
 
 Event :: enum {
@@ -262,11 +264,13 @@ draw_tiles :: proc() {
 	}
 }
 
-set_screen_text :: proc(section: ScreenTextSection, text: cstring) {
+set_screen_text :: proc(section: ScreenTextSection, text: cstring, sub_text: cstring = "") {
 	screen_text.active = true
 	screen_text.section = section
 	screen_text.text = text
+	screen_text.sub_text = sub_text
 	screen_text.text_width = rl.MeasureText(screen_text.text, screen_text.font_size)
+	screen_text.subtext_width = rl.MeasureText(screen_text.sub_text, (screen_text.font_size * 3) / 4)
 }
 
 draw_screen_text :: proc(text: ScreenText) {
@@ -285,7 +289,11 @@ draw_screen_text :: proc(text: ScreenText) {
 	}
 	text_x := i32(SCREEN_WIDTH) / 2 - screen_text.text_width / 2
 	text_y := section - screen_text.font_size / 2
+	subtext_x := i32(SCREEN_WIDTH) / 2 - screen_text.subtext_width / 2
+	subtext_y := section - screen_text.font_size / 2 + FONT_SIZE + 2
 	rl.DrawText(screen_text.text, text_x, text_y, screen_text.font_size, rl.BLACK)
+	rl.DrawText(screen_text.sub_text, subtext_x, subtext_y, (screen_text.font_size * 3) / 4, rl.BLACK)
+
 }
 
 draw_score :: proc() {
@@ -579,7 +587,8 @@ main :: proc() {
 	// note, we should handle large dt better, we can tunnel through things for large dt
 	for !rl.WindowShouldClose() {
 		dt := rl.GetFrameTime()
-		dt = max(dt, MIN_FPS)
+		dt = min(dt, MIN_FPS)
+
 		if rl.IsKeyPressed(.R) {
 			switch_to_new_game(current_level.Level_number)
 		}
@@ -655,7 +664,7 @@ celebrate :: proc() {
 toggle_pause :: proc() {
 	paused = !paused
 	if paused {
-		set_screen_text(.Bottom, "PAUSED")
+		set_screen_text(.Bottom, "PAUSED", "(space to resume)")
 	}
 	screen_text.active = paused
 }
@@ -685,7 +694,7 @@ switch_to_starting :: proc(level_number: u8) {
 	particles_reset()
 
 	paused = false
-	set_screen_text(.Bottom, "Press (space) to start")
+	set_screen_text(.Bottom, "Press (space) to start", "Get Ready !")
 	state = .Starting
 }
 
