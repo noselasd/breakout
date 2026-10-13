@@ -55,8 +55,8 @@ FONT_SIZE :: 64
 FONT_SIZE_SMALL :: 36
 
 
-SHADOW_COLOR :: rl.Color{0, 0, 0, 24}
-SHADOW_OFFSET :: 5
+SHADOW_COLOR :: rl.Color{10, 10, 26, 64}
+SHADOW_OFFSET :: 4
 // cap simulation at 0.0416 sec
 MIN_FPS :: 1.0 / 24.0
 
