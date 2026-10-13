@@ -627,7 +627,7 @@ main :: proc() {
 				dt,
 				&ball.position,
 				&ball.velocity,
-				{pad.position.x + PAD_WIDTH / 2, PAD_Y_POS - BALL_RADIUS},
+				{pad.position.x + PAD_WIDTH / 2, pad.position.y - BALL_RADIUS},
 				BALL_SPEED * 1.667,
 			)
 			game_update(dt, state)
