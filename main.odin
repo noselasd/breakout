@@ -50,10 +50,13 @@ BALL_TEX_MAP :: rl.Rectangle{160, 200, BALL_RADIUS * 2, BALL_RADIUS * 2}
 GRID_WIDTH :: TILE_WIDTH * TILE_COLS + (TILE_COLS - 1) * TILE_SPACING
 GRID_X_START :: (SCREEN_WIDTH - GRID_WIDTH) / 2
 // 0 indexed. The displayed level is +1
-START_LEVEL :: 2
+START_LEVEL :: 1
 FONT_SIZE :: 64
 FONT_SIZE_SMALL :: 36
 
+
+SHADOW_COLOR :: rl.Color{0, 0, 0, 24}
+SHADOW_OFFSET :: 5
 // cap simulation at 0.0416 sec
 MIN_FPS :: 1.0 / 24.0
 
@@ -219,6 +222,8 @@ draw_walls :: proc() {
 }
 
 draw_tile :: proc(tile: ^Tile) {
+	shadow_pos := tile.position + SHADOW_OFFSET
+	rl.DrawRectangleV(shadow_pos, {TILE_WIDTH, TILE_HEIGHT}, SHADOW_COLOR)
 	rl.DrawRectangleV(tile.position, {TILE_WIDTH, TILE_HEIGHT}, tile.color)
 	if tile.unbreakable {
 		rl.DrawRectangleLines(i32(tile.position.x), i32(tile.position.y), TILE_WIDTH, TILE_HEIGHT, rl.BLACK)
@@ -246,14 +251,19 @@ move_pad :: proc(dt: f32) {
 }
 
 draw_pad :: proc(pos: rl.Vector2) {
-	//rl.DrawRectangleV({x, PAD_Y_POS}, {PAD_WIDTH, TILE_HEIGHT}, rl.BEIGE)
+	shadow_pos := pos + SHADOW_OFFSET
+	shadow_rect := rl.Rectangle{shadow_pos.x, shadow_pos.y, PAD_WIDTH, PAD_HEIGHT}
+	rl.DrawRectangleRounded(shadow_rect, 0.5, 3, SHADOW_COLOR)
 	rl.DrawTextureRec(texture_map, BIG_PAD_TEX_MAP, pos, rl.WHITE)
 
 }
 
 draw_ball :: proc(pos: rl.Vector2) {
 	adjusted_pos := rl.Vector2{pos.x - BALL_RADIUS, pos.y - BALL_RADIUS}
+	shadow_pos := pos + SHADOW_OFFSET
+	rl.DrawCircleV(shadow_pos, BALL_RADIUS, SHADOW_COLOR)
 	rl.DrawTextureRec(texture_map, BALL_TEX_MAP, adjusted_pos, rl.WHITE)
+
 }
 
 draw_tiles :: proc() {
