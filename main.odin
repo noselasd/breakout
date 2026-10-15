@@ -434,15 +434,6 @@ tile_collide :: proc(ball: ^Movable) -> BallEvent {
 	return {.Bounced}
 }
 
-RectSide :: enum {
-	None,
-	Top,
-	Bottom,
-	Left,
-	Right,
-}
-
-
 // Swept circle vs rect. The circle center moving prev -> pos is treated as a ray against
 // the rect expanded by the radius. The corners are kept square, so the normal is always
 // axis aligned (and the circle bounces off a corner up to ~0.4 radius early).
@@ -515,6 +506,24 @@ celebrate_cooldown: f32 = .33
 texture_map: rl.Texture2D
 current_level: Level
 
+
+Anim :: struct {
+	elapsed:  f32,
+	duration: f32,
+}
+
+pingpong :: proc(anim: ^Anim, dt: f32) -> f32 {
+	anim.elapsed += dt
+	if anim.elapsed >= anim.duration * 2 {
+		anim.elapsed = math.mod(anim.elapsed, anim.duration * 2.0)
+	}
+
+	t := 1.0 - abs(anim.elapsed / anim.duration - 1.0)
+	return t * t * (3.0 - 2.0 * t) // ease in/out
+}
+
+pingpong_pad := Anim{0, 1.0}
+
 game_update :: proc(dt: f32, state: State) -> bool {
 	killed: bool
 	pad.prev_position = pad.position
@@ -536,6 +545,11 @@ game_update :: proc(dt: f32, state: State) -> bool {
 			rl.SetSoundPitch(sound_bounce, rand.float32_range(0.8, 1.2))
 			rl.PlaySound(sound_bounce)
 		}
+
+	} else if state == .Starting {
+		pad_min_x: f32 = WALL_WIDTH
+		pad_max_x: f32 = SCREEN_WIDTH - WALL_WIDTH - PAD_WIDTH
+		pad.position.x = rl.Lerp(pad_min_x, pad_max_x, pingpong(&pingpong_pad, dt))
 
 	}
 	particles_update(dt)
@@ -580,6 +594,7 @@ move_towards :: proc(dt: f32, pos, vel: ^rl.Vector2, target: rl.Vector2, speed: 
 	vel^ = direction_normal * speed
 	return false
 }
+
 
 main :: proc() {
 	rl.SetConfigFlags({.VSYNC_HINT})
