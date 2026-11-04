@@ -50,7 +50,7 @@ BALL_TEX_MAP :: rl.Rectangle{160, 200, BALL_RADIUS * 2, BALL_RADIUS * 2}
 GRID_WIDTH :: TILE_WIDTH * TILE_COLS + (TILE_COLS - 1) * TILE_SPACING
 GRID_X_START :: (SCREEN_WIDTH - GRID_WIDTH) / 2
 // 0 indexed. The displayed level is +1
-START_LEVEL :: 1
+START_LEVEL :: 2
 FONT_SIZE :: 64
 FONT_SIZE_SMALL :: 36
 
@@ -356,7 +356,7 @@ pad_collide :: proc(ball: ^Movable, pad: ^Movable) -> bool {
 	pad_center := pad.position.x + (PAD_WIDTH / 2)
 	hit_pos := clamp((ball.position.x - pad_center) / (PAD_WIDTH / 2), -1, 1)
 	angle: f32 = --- // relative to Y axis.
-	if abs(hit_pos) < BALL_RADIUS / (PAD_WIDTH / 2.0) {
+	if abs(hit_pos) < BALL_RADIUS / PAD_WIDTH {
 		angle = 0
 	} else {
 		angle = hit_pos * (60 * rl.DEG2RAD)
